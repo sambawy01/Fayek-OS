@@ -1,0 +1,9 @@
+{
+  "crons": [
+    { "path": "/api/cron/daily-brief", "schedule": "0 6 * * *" },
+    { "path": "/api/cron/evening-digest", "schedule": "0 16 * * *" },
+    { "path": "/api/cron/weekly-report", "schedule": "0 6 * * 1" },
+    { "path": "/api/cron/monthly-pnl", "schedule": "0 7 1 * *" },
+    { "path": "/api/cron/backup", "schedule": "0 2 * * *" }
+  ]
+}
