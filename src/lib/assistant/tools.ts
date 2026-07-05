@@ -413,7 +413,7 @@ export const TOOLS: OllamaTool[] = [
       intent: {
         type: "string",
         enum: ["checkin", "reply", "thanks", "custom"],
-        description: "checkin = re-booking nudge; thanks = thank-you; reply/custom = frame your message",
+        description: "checkin = win-back nudge; thanks = thank-you; reply/custom = frame your message",
       },
       message: {
         type: "string",

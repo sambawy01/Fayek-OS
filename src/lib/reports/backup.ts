@@ -7,9 +7,8 @@ import { getPrivateBlob } from "../blob-read";
  * Exports EVERY business blob into one JSON snapshot:
  * - orders/*                  (one JSON doc per order)
  * - crm/clients/*             (per-client tag overlays + per-note blobs — PII:
- *                              private notes, tags, visit-derived ids)
+ *                              private notes, tags, order-derived ids)
  * - catalog/products.json     (shop catalog)
- * - catalog/treatments.json   (treatments catalog)
  * - telegram/audit.jsonl      (Fayek's append-only action log)
  *
  * PII NOTE: the CRM blobs hold private client notes/tags. The snapshot is only
@@ -43,7 +42,6 @@ export const BACKUP_KEEP = 8;
 
 const SINGLE_FILES = [
   "catalog/products.json",
-  "catalog/treatments.json",
   "telegram/audit.jsonl",
 ] as const;
 

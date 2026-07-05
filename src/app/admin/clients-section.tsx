@@ -4,21 +4,16 @@ import { useEffect, useRef, useState } from "react";
 import type {
   ClientProfile,
   ClientSummary,
-  RebookingClient,
   UnlinkedOverlay,
 } from "@/lib/crm";
 
 /**
- * Clients manager — the owner's private CRM inside /admin (the 6th tab).
+ * Clients manager — the owner's private CRM inside /admin.
  *
- * Profiles are DERIVED from bookings + orders (no duplicate records); this
- * view adds the stored overlay (private notes + tags) on top. Two views:
- * - "Directory": searchable list (name · last visit · #bookings · spend ·
- *   tags). Click a client → a profile card with booking + order history,
- *   notes (add / delete) and tags (add / remove).
- * - "Re-booking radar": clients overdue for a check-in, each with a suggested
- *   branded DRAFT and a copy affordance (sending stays manual — paste into an
- *   email, or ask Fayek to send via the confirmed email tool).
+ * Profiles are DERIVED from shop orders (no duplicate records); this view adds
+ * the stored overlay (private notes + tags) on top. It's a searchable directory
+ * (name · #orders · spend · tags); click a client → a profile card with order
+ * history, notes (add / delete) and tags (add / remove).
  *
  * PRIVATE PII: this tab is admin-only and never exposed publicly. Notes are
  * owner-private. Auth mirrors finance-section: legacy ?key= flows down as
@@ -279,7 +274,7 @@ function ProfileCard({
     if (
       !window.confirm(
         "Delete ALL internal records for this client — every private note and tag? " +
-          "Booking and order history is kept (it lives with the scheduler/shop). " +
+          "Order history is kept (it lives with the shop orders). " +
           "This cannot be undone."
       )
     ) {
@@ -335,12 +330,8 @@ function ProfileCard({
               {profile.phone || "—"}
             </p>
             <p>
-              <span className="text-[#5E6B4F]">Last visit:</span>{" "}
-              {fmtDate(profile.lastVisit)}
-            </p>
-            <p>
-              <span className="text-[#5E6B4F]">Next visit:</span>{" "}
-              {fmtDate(profile.nextVisit)}
+              <span className="text-[#5E6B4F]">Orders:</span>{" "}
+              {profile.ordersCount}
             </p>
             <p>
               <span className="text-[#5E6B4F]">Total spend:</span>{" "}
@@ -446,24 +437,6 @@ function ProfileCard({
             </div>
           </div>
 
-          {/* booking history */}
-          <div>
-            <p className="mb-1 text-xs font-medium uppercase tracking-[0.08em] text-[#5E6B4F]">
-              Booking history ({profile.bookings.length})
-            </p>
-            <div className="space-y-1">
-              {profile.bookings.length === 0 && (
-                <p className="text-sm text-[#5E6B4F]">No bookings.</p>
-              )}
-              {profile.bookings.slice(0, 30).map((b) => (
-                <p key={b.uid} className="text-sm text-[#38492E]">
-                  {fmtDateTime(b.start)} · {b.treatment} ·{" "}
-                  <span className="text-[#5E6B4F]">{b.status}</span>
-                </p>
-              ))}
-            </div>
-          </div>
-
           {/* order history */}
           <div>
             <p className="mb-1 text-xs font-medium uppercase tracking-[0.08em] text-[#5E6B4F]">
@@ -487,7 +460,7 @@ function ProfileCard({
           <div className="border-t border-[#38492E]/10 pt-4">
             <p className="mb-2 text-xs text-[#5E6B4F]">
               Delete this client&apos;s internal records (private notes and
-              tags). Their booking and order history is kept.
+              tags). Their order history is kept.
             </p>
             <button
               type="button"
@@ -504,195 +477,19 @@ function ProfileCard({
   );
 }
 
-/* ---------- re-booking radar ---------- */
-
-function DraftBox({ client }: { client: RebookingClient }) {
-  const [open, setOpen] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const draft = client.suggestedDraft;
-  const full = `Subject: ${draft.subject}\n\n${draft.body}`;
-
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(full);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      setCopied(false);
-    }
-  }
-
-  return (
-    <div className="mt-2">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className={subtleBtn}
-      >
-        {open ? "Hide draft" : "Draft check-in"}
-      </button>
-      {open && (
-        <div className="mt-2 rounded-xl border border-[#38492E]/10 bg-white px-3 py-3">
-          <p className="text-sm font-medium text-[#38492E]">
-            Subject: {draft.subject}
-          </p>
-          <pre className="mt-2 whitespace-pre-wrap font-sans text-sm text-[#38492E]">
-            {draft.body}
-          </pre>
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <button type="button" onClick={() => void copy()} className={primaryBtn}>
-              {copied ? "Copied!" : "Copy draft"}
-            </button>
-            {client.email ? (
-              <a
-                href={`mailto:${encodeURIComponent(client.email)}?subject=${encodeURIComponent(draft.subject)}&body=${encodeURIComponent(draft.body)}`}
-                className={subtleBtn}
-              >
-                Open in email
-              </a>
-            ) : (
-              <span className="text-xs text-[#5E6B4F]">
-                No email on file — copy and send another way.
-              </span>
-            )}
-          </div>
-          <p className="mt-2 text-xs text-[#5E6B4F]">
-            This is a draft for you to review. Nothing is sent automatically.
-          </p>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function RadarView({
-  adminKey,
-  initial,
-  onOpenClient,
-}: {
-  adminKey: string;
-  initial: RebookingClient[];
-  onOpenClient: (clientId: string) => void;
-}) {
-  const [weeks, setWeeks] = useState(6);
-  const [clients, setClients] = useState<RebookingClient[]>(initial);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const firstLoad = useRef(true);
-
-  async function load(targetWeeks: number) {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(
-        `/api/admin/clients/rebooking?weeks=${targetWeeks}`,
-        { headers: authHeaders(adminKey) }
-      );
-      if (!res.ok) {
-        setError(await readError(res));
-        return;
-      }
-      const payload = (await res.json()) as { clients: RebookingClient[] };
-      setClients(payload.clients);
-    } catch {
-      setError("Network error — please try again.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    if (firstLoad.current) {
-      firstLoad.current = false;
-      return;
-    }
-    void load(weeks);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [weeks]);
-
-  return (
-    <div>
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <label className="text-xs font-medium uppercase tracking-[0.08em] text-[#5E6B4F]">
-          Overdue by
-        </label>
-        <select
-          value={weeks}
-          onChange={(e) => setWeeks(Number(e.target.value))}
-          className="rounded-xl border border-[#38492E]/15 bg-white px-3 py-1.5 text-sm text-[#38492E] outline-none focus:border-[#357F75]"
-        >
-          {[4, 6, 8, 12, 16].map((w) => (
-            <option key={w} value={w}>
-              {w}+ weeks
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {error && <p className="mb-3 text-sm text-[#B5483A]">{error}</p>}
-      {loading ? (
-        <p className="text-sm text-[#5E6B4F]">Loading…</p>
-      ) : clients.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-[#38492E]/15 bg-[#FBF4E6]/60 px-6 py-8 text-center text-sm text-[#5E6B4F]">
-          No clients are overdue for a check-in right now. 🌿
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {clients.map((c) => (
-            <article
-              key={c.clientId}
-              className="rounded-2xl border border-[#38492E]/10 bg-[#FBF4E6] px-4 py-3 shadow-sm"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <button
-                    type="button"
-                    onClick={() => onOpenClient(c.clientId)}
-                    className="text-left text-base font-medium text-[#38492E] underline-offset-2 hover:underline"
-                  >
-                    {c.displayName}
-                  </button>
-                  <p className="text-sm text-[#5E6B4F]">
-                    {c.email || c.phone || "no contact"} · last{" "}
-                    {c.lastTreatment || "visit"} {fmtDate(c.lastVisit)}
-                  </p>
-                </div>
-                <span className="inline-block rounded-full bg-[#B5483A]/12 px-3 py-0.5 text-xs font-semibold text-[#B5483A]">
-                  {c.overdueWeeks}w overdue
-                </span>
-              </div>
-              {c.tags.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {c.tags.map((t) => (
-                    <TagPill key={t} tag={t} />
-                  ))}
-                </div>
-              )}
-              <DraftBox client={c} />
-            </article>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 /* ---------- section ---------- */
 
 export default function ClientsSection({
   initialClients,
-  initialRebooking,
   initialUnlinked,
   adminKey,
   loadError,
 }: {
   initialClients: ClientSummary[];
-  initialRebooking: RebookingClient[];
   initialUnlinked: UnlinkedOverlay[];
   adminKey: string;
   loadError: string | null;
 }) {
-  const [view, setView] = useState<"directory" | "radar">("directory");
   const [clients, setClients] = useState<ClientSummary[]>(initialClients);
   const [unlinked, setUnlinked] = useState<UnlinkedOverlay[]>(initialUnlinked);
   const [search, setSearch] = useState("");
@@ -756,7 +553,6 @@ export default function ClientsSection({
   }
 
   function openClient(clientId: string) {
-    setView("directory");
     setSelected(clientId);
   }
 
@@ -764,27 +560,11 @@ export default function ClientsSection({
     <section>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <h2 className="font-serif text-2xl text-[#38492E]">Clients</h2>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => setView("directory")}
-            className={view === "directory" ? primaryBtn : subtleBtn}
-          >
-            Directory
-          </button>
-          <button
-            type="button"
-            onClick={() => setView("radar")}
-            className={view === "radar" ? primaryBtn : subtleBtn}
-          >
-            Re-booking radar
-          </button>
-        </div>
       </div>
 
       <p className="mb-4 text-sm text-[#5E6B4F]">
-        Profiles are built automatically from bookings and orders. Notes and
-        tags are private — clients never see them.
+        Profiles are built automatically from shop orders. Notes and tags are
+        private — clients never see them.
       </p>
 
       {error && (
@@ -801,7 +581,7 @@ export default function ClientsSection({
           </p>
           <p className="mt-1 text-xs text-[#5E6B4F]">
             These hold notes/tags whose client no longer resolves (e.g. a
-            phone-only client whose visits aged out). Nothing is lost — review,
+            phone-only client whose orders aged out). Nothing is lost — review,
             then delete if no longer needed.
           </p>
           <div className="mt-3 space-y-2">
@@ -830,13 +610,7 @@ export default function ClientsSection({
         </div>
       )}
 
-      {view === "radar" ? (
-        <RadarView
-          adminKey={adminKey}
-          initial={initialRebooking}
-          onOpenClient={openClient}
-        />
-      ) : selected ? (
+      {selected ? (
         <ProfileCard
           clientId={selected}
           adminKey={adminKey}
@@ -862,7 +636,7 @@ export default function ClientsSection({
             <div className="rounded-2xl border border-dashed border-[#38492E]/15 bg-[#FBF4E6]/60 px-6 py-8 text-center text-sm text-[#5E6B4F]">
               {search.trim()
                 ? `No clients match "${search.trim()}".`
-                : "No clients yet — they appear here after their first booking or order."}
+                : "No clients yet — they appear here after their first order."}
             </div>
           ) : (
             <div className="space-y-2">
@@ -886,10 +660,7 @@ export default function ClientsSection({
                     </span>
                   </div>
                   <p className="text-sm text-[#5E6B4F]">
-                    {c.bookingsCount} booking{c.bookingsCount === 1 ? "" : "s"} ·{" "}
-                    {c.ordersCount} order{c.ordersCount === 1 ? "" : "s"} · last
-                    visit {fmtDate(c.lastVisit)}
-                    {c.nextVisit ? ` · next ${fmtDate(c.nextVisit)}` : ""}
+                    {c.ordersCount} order{c.ordersCount === 1 ? "" : "s"}
                   </p>
                   {(c.tags.length > 0 || c.noteCount > 0) && (
                     <div className="mt-1.5 flex flex-wrap items-center gap-1.5">

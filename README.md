@@ -79,10 +79,6 @@ risky. Known items to revisit:
   and a second language (`ru`) exist in the schema but are **dormant** (RU
   mirrors EN, `priceRub` stays 0) — enable them without a data-model change, or
   strip them for a single-currency store.
-- **CRM booking fields**: the CRM inherits a "bookings / re-booking radar"
-  concept from the studio app it forked. For a pure shop these are inert
-  (always empty). The Clients tab still shows the labels; relabel/remove if you
-  don't do appointments.
 - **Logo assets**: `public/logo.png` and `public/assets/logo-*.png` are carried
   over from the source project and used in emails/PDF letterheads. Replace them
   with your own artwork.

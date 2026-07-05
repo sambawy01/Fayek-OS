@@ -1,18 +1,15 @@
 import { createHmac } from "node:crypto";
 import { del, list, put } from "@vercel/blob";
 import { getPrivateBlob } from "./blob-read";
-import { listBookingsInRange, type CalBooking } from "./admin/cal";
 import { listOrders, type StoredOrder } from "./orders";
-import { getTreatmentsCatalog, type Treatment } from "./treatments";
 import { orderRevenueEgp } from "./reports/weekly-report";
 import { listAllBlobPathnames, type BlobListPage } from "./finance";
 
 /**
- * CRM for Fayek OS — client profiles DERIVED from
- * existing data (Cal bookings + shop orders) plus a small STORED overlay for
- * notes and tags. There are NO duplicate client records: a profile is computed
- * on demand by merging every booking and order that resolves to the same
- * canonical identity, then merging in the per-client overlay.
+ * CRM for Fayek OS — client profiles DERIVED from shop orders plus a small
+ * STORED overlay for notes and tags. There are NO duplicate client records: a
+ * profile is computed on demand by merging every order that resolves to the
+ * same canonical identity, then merging in the per-client overlay.
  *
  * IDENTITY (the whole CRM hinges on this):
  * - Canonical key = normalized lowercase EMAIL. When a record carries no email
@@ -55,7 +52,7 @@ import { listAllBlobPathnames, type BlobListPage } from "./finance";
  *   verifiable offline against in-memory mocks (the local BLOB token 403s on
  *   private reads — same constraint the finance harness works around).
  *
- * PRIVACY: this is PII (names, emails, phones, visit history, private notes).
+ * PRIVACY: this is PII (names, emails, phones, order history, private notes).
  * Admin-only + Fayek owner-only. It is NEVER exposed on a public route and
  * NEVER passed to the website concierge (/api/chat). Notes are owner-private.
  */
@@ -149,14 +146,6 @@ export interface ClientOverlay {
   updatedAt: string;
 }
 
-export interface ClientBookingRef {
-  uid: string;
-  start: string;
-  status: string;
-  treatment: string;
-  eventTypeId: number;
-}
-
 export interface ClientOrderRef {
   orderNumber: string;
   createdAt: string;
@@ -190,16 +179,9 @@ export interface ClientProfile {
   reconciledFromPhone: boolean;
   lang: string;
   firstSeen: string | null;
-  /** Most recent PAST confirmed booking start (ISO), or null. */
-  lastVisit: string | null;
-  /** Soonest FUTURE confirmed booking start (ISO), or null. */
-  nextVisit: string | null;
-  bookingsCount: number;
-  treatmentsList: string[];
   ordersCount: number;
   totalSpendEgp: number;
   lastOrderDate: string | null;
-  bookings: ClientBookingRef[];
   orders: ClientOrderRef[];
   notes: ClientNote[];
   tags: string[];
@@ -214,9 +196,6 @@ export interface ClientSummary {
   matchedByPhone: boolean;
   reconciledFromPhone: boolean;
   lang: string;
-  lastVisit: string | null;
-  nextVisit: string | null;
-  bookingsCount: number;
   ordersCount: number;
   totalSpendEgp: number;
   tags: string[];
@@ -232,9 +211,6 @@ export function toClientSummary(p: ClientProfile): ClientSummary {
     matchedByPhone: p.matchedByPhone,
     reconciledFromPhone: p.reconciledFromPhone,
     lang: p.lang,
-    lastVisit: p.lastVisit,
-    nextVisit: p.nextVisit,
-    bookingsCount: p.bookingsCount,
     ordersCount: p.ordersCount,
     totalSpendEgp: p.totalSpendEgp,
     tags: p.tags,
@@ -375,18 +351,14 @@ export function __resetCrmStore(): void {
   store = blobStore;
 }
 
-// --- Injectable derived sources (Cal + orders + treatments) -------------------
+// --- Injectable derived source (orders) ---------------------------------------
 
 export interface CrmDataSources {
-  listBookingsInRange: typeof listBookingsInRange;
   listOrders: typeof listOrders;
-  getTreatmentsCatalog: typeof getTreatmentsCatalog;
 }
 
 const liveSources: CrmDataSources = {
-  listBookingsInRange,
   listOrders,
-  getTreatmentsCatalog,
 };
 
 let activeSources: CrmDataSources = liveSources;
@@ -396,7 +368,7 @@ export function __setCrmSources(next: CrmDataSources): void {
   activeSources = next;
 }
 
-/** TEST-ONLY: restore the live Cal/orders/treatments sources. */
+/** TEST-ONLY: restore the live orders source. */
 export function __resetCrmSources(): void {
   activeSources = liveSources;
 }
@@ -712,30 +684,6 @@ export async function deleteClientRecords(
 
 // --- Profile derivation -------------------------------------------------------
 
-/** "Facial Massage between Fayek OS and X" → "Facial Massage". */
-function serviceTitle(booking: CalBooking): string {
-  const title = booking.title || "Booking";
-  const idx = title.indexOf(" between ");
-  return idx > 0 ? title.slice(0, idx) : title;
-}
-
-/** Phone field off a Cal booking's responses (best effort). */
-function bookingPhone(b: CalBooking): string {
-  const v = b.bookingFieldsResponses?.["attendeePhoneNumber"];
-  return typeof v === "string" ? v.trim() : "";
-}
-
-/** Booking language hint from metadata / responses; defaults to "en". */
-function bookingLang(b: CalBooking): string {
-  const meta = (b as unknown as { metadata?: { lang?: unknown } }).metadata;
-  if (meta && typeof meta.lang === "string" && meta.lang.trim()) {
-    return meta.lang.trim().toLowerCase();
-  }
-  const r = b.bookingFieldsResponses?.["lang"];
-  if (typeof r === "string" && r.trim()) return r.trim().toLowerCase();
-  return "en";
-}
-
 interface NameCandidate {
   name: string;
   at: number;
@@ -756,7 +704,6 @@ interface ClientAccumulator {
   phones: Set<string>;
   names: NameCandidate[];
   langs: NameCandidate[];
-  bookings: ClientBookingRef[];
   orders: ClientOrderRef[];
   /** Set true once a phone-redirected record folds into this email profile. */
   reconciledFromPhone: boolean;
@@ -775,7 +722,6 @@ function getAcc(
       phones: new Set(),
       names: [],
       langs: [],
-      bookings: [],
       orders: [],
       reconciledFromPhone: false,
     };
@@ -787,32 +733,16 @@ function getAcc(
 export interface BuildOptions {
   now?: Date;
   sources?: CrmDataSources;
-  /** Days of history to scan back / ahead when gathering bookings. */
-  lookbackDays?: number;
-  lookaheadDays?: number;
 }
 
 /**
- * Normalize a timestamp to canonical UTC ISO (`…Z`). Cal can hand back an
- * offset form (`+02:00`); comparing those as raw strings against a `…Z` "now"
- * would sort wrong and could flip a booking across the past/future boundary.
- * Normalizing every booking start at ingestion makes all downstream string
- * comparisons (and equality with `lastVisit`) chronologically correct. Falls
- * back to the original string if it isn't a parseable date.
- */
-function toIso(value: string): string {
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? value : d.toISOString();
-}
-
-/**
- * Build every client profile from live (or injected) Cal bookings + shop
- * orders, with overlays merged in, PLUS any overlay that matches no profile
- * ("unlinked"). Pure aggregation beyond the source reads — fully testable with
- * seeded sources + an in-memory overlay store.
+ * Build every client profile from live (or injected) shop orders, with overlays
+ * merged in, PLUS any overlay that matches no profile ("unlinked"). Pure
+ * aggregation beyond the source reads — fully testable with seeded sources + an
+ * in-memory overlay store.
  *
  * Identity reconciliation: a phone that appears on ANY email-bearing record is
- * folded into that email-keyed profile, so a phone-only client who later books
+ * folded into that email-keyed profile, so a phone-only client who later orders
  * with an email does NOT split into two profiles. The phone-keyed overlay is
  * then attached to the merged profile; an overlay matching no profile at all is
  * surfaced as `unlinked` rather than silently dropped.
@@ -821,30 +751,11 @@ async function buildProfilesWithOverlay(
   options: BuildOptions = {}
 ): Promise<{ profiles: ClientProfile[]; unlinked: UnlinkedOverlay[] }> {
   const sources = options.sources ?? activeSources;
-  const now = options.now ?? new Date();
-  const nowIso = now.toISOString();
-  const lookbackDays = options.lookbackDays ?? 730;
-  const lookaheadDays = options.lookaheadDays ?? 365;
-  const DAY = 86_400_000;
 
-  const [bookings, orders, treatments, overlays] = await Promise.all([
-    // listBookingsInRange paginates internally and returns the FULL window —
-    // no `take` (Cal caps it at 250 and would 400/truncate the 730-day lookback).
-    sources.listBookingsInRange(
-      new Date(now.getTime() - lookbackDays * DAY).toISOString(),
-      new Date(now.getTime() + lookaheadDays * DAY).toISOString()
-    ),
+  const [orders, overlays] = await Promise.all([
     sources.listOrders({ limit: 500 }),
-    sources.getTreatmentsCatalog(),
     listOverlays(),
   ]);
-
-  const priceByEventTypeId = new Map<number, string>();
-  for (const t of treatments) {
-    if (typeof t.eventTypeId === "number") {
-      priceByEventTypeId.set(t.eventTypeId, t.name.en);
-    }
-  }
 
   // PASS 1 — phone → email-key reconciliation. Any record carrying BOTH an
   // email and a phone teaches us that this phone belongs to that email profile;
@@ -857,9 +768,6 @@ async function buildProfilesWithOverlay(
     const e = normalizeEmail(email);
     const p = normalizePhone(phone);
     if (e && p && !phoneToEmailKey.has(p)) phoneToEmailKey.set(p, `email:${e}`);
-  }
-  for (const b of bookings) {
-    learnPhoneEmail(b.attendees?.[0]?.email, bookingPhone(b));
   }
   for (const o of orders) {
     learnPhoneEmail(o.email, o.phone);
@@ -881,36 +789,6 @@ async function buildProfilesWithOverlay(
 
   // PASS 2 — accumulate records under their (reconciled) key.
   const map = new Map<string, ClientAccumulator>();
-
-  for (const b of bookings) {
-    const attendee = b.attendees?.[0];
-    const email = attendee?.email ?? "";
-    const phone = bookingPhone(b);
-    const key = resolveKey(email, phone);
-    if (!key) continue;
-    const acc = getAcc(map, key);
-    // A record carrying NO email of its own that lands under an EMAIL key was
-    // folded in by phone→email reconciliation (F-1): flag the absorbing profile.
-    if (key.startsWith("email:") && !normalizeEmail(email)) {
-      acc.reconciledFromPhone = true;
-    }
-    if (normalizeEmail(email)) acc.emails.add(normalizeEmail(email));
-    if (normalizePhone(phone)) acc.phones.add(phone.trim());
-    const at = new Date(b.start).getTime();
-    acc.names.push({ name: attendee?.name ?? "", at: Number.isNaN(at) ? 0 : at });
-    acc.langs.push({ name: bookingLang(b), at: Number.isNaN(at) ? 0 : at });
-    const treatment =
-      (typeof b.eventTypeId === "number" &&
-        priceByEventTypeId.get(b.eventTypeId)) ||
-      serviceTitle(b);
-    acc.bookings.push({
-      uid: b.uid,
-      start: toIso(b.start),
-      status: (b.status || "").toLowerCase(),
-      treatment,
-      eventTypeId: typeof b.eventTypeId === "number" ? b.eventTypeId : 0,
-    });
-  }
 
   for (const o of orders) {
     const key = resolveKey(o.email, o.phone);
@@ -938,20 +816,8 @@ async function buildProfilesWithOverlay(
 
   const profiles: ClientProfile[] = [];
   for (const acc of map.values()) {
-    const confirmedBookings = acc.bookings.filter(
-      (b) => b.status === "accepted"
-    );
-    const pastConfirmed = confirmedBookings
-      .filter((b) => b.start < nowIso)
-      .sort((a, b) => b.start.localeCompare(a.start));
-    const futureConfirmed = confirmedBookings
-      .filter((b) => b.start >= nowIso)
-      .sort((a, b) => a.start.localeCompare(b.start));
-
-    const allStarts = acc.bookings.map((b) => b.start);
-    const allOrderDates = acc.orders.map((o) => o.createdAt);
     const firstSeen =
-      [...allStarts, ...allOrderDates].sort((a, b) => a.localeCompare(b))[0] ??
+      acc.orders.map((o) => o.createdAt).sort((a, b) => a.localeCompare(b))[0] ??
       null;
 
     const ordersByDate = acc.orders
@@ -970,10 +836,6 @@ async function buildProfilesWithOverlay(
           }) as StoredOrder
       )
     );
-
-    const treatmentsList = [
-      ...new Set(confirmedBookings.map((b) => b.treatment).filter(Boolean)),
-    ];
 
     // Attach overlays from the canonical clientId AND every phone-keyed id this
     // client owns — so a phone-only client's notes follow them once they gain
@@ -1021,16 +883,9 @@ async function buildProfilesWithOverlay(
       reconciledFromPhone: acc.reconciledFromPhone,
       lang,
       firstSeen,
-      lastVisit: pastConfirmed[0]?.start ?? null,
-      nextVisit: futureConfirmed[0]?.start ?? null,
-      bookingsCount: acc.bookings.length,
-      treatmentsList,
       ordersCount: acc.orders.length,
       totalSpendEgp,
       lastOrderDate,
-      bookings: acc.bookings
-        .slice()
-        .sort((a, b) => b.start.localeCompare(a.start)),
       orders: ordersByDate,
       notes: mergedNotes,
       tags: [...mergedTags],
@@ -1055,33 +910,28 @@ async function buildProfilesWithOverlay(
   return { profiles, unlinked };
 }
 
-/** Latest-activity timestamp for default sort (visit or order, whichever newer). */
+/** Latest-activity timestamp for default sort (most recent order). */
 function lastActivity(p: ClientProfile): string {
   return (
-    [p.lastVisit, p.nextVisit, p.lastOrderDate, p.firstSeen]
+    [p.lastOrderDate, p.firstSeen]
       .filter((x): x is string => Boolean(x))
       .sort((a, b) => b.localeCompare(a))[0] ?? ""
   );
 }
 
 /**
- * Build the full client directory (profiles + overlay), the re-booking radar,
- * and any unlinked overlays at once.
+ * Build the full client directory (profiles + overlay) and any unlinked
+ * overlays at once.
  */
 export async function getClientsOverview(
-  options: BuildOptions & { weeks?: number } = {}
+  options: BuildOptions = {}
 ): Promise<{
   profiles: ClientProfile[];
-  rebooking: RebookingClient[];
   unlinked: UnlinkedOverlay[];
 }> {
   const { profiles, unlinked } = await buildProfilesWithOverlay(options);
   profiles.sort((a, b) => lastActivity(b).localeCompare(lastActivity(a)));
-  const rebooking = computeRebookingRadar(profiles, {
-    weeks: options.weeks ?? 6,
-    now: options.now,
-  });
-  return { profiles, rebooking, unlinked };
+  return { profiles, unlinked };
 }
 
 /**
@@ -1138,73 +988,6 @@ export async function resolveClients(
   return listClientProfiles({ search: id }, options);
 }
 
-// --- Re-booking radar ---------------------------------------------------------
-
-export interface RebookingClient {
-  clientId: string;
-  displayName: string;
-  email: string;
-  phone: string;
-  lang: string;
-  lastVisit: string;
-  lastTreatment: string;
-  overdueWeeks: number;
-  totalSpendEgp: number;
-  tags: string[];
-  suggestedDraft: { subject: string; body: string };
-}
-
-const WEEK_MS = 7 * 86_400_000;
-
-/**
- * Clients due for a check-in: a past confirmed visit older than `weeks` weeks,
- * AND no upcoming confirmed booking. Most-overdue first. Each carries a
- * suggested branded check-in draft (Fayek OS sends it via the email tool).
- */
-export function computeRebookingRadar(
-  profiles: ClientProfile[],
-  options: { weeks?: number; now?: Date } = {}
-): RebookingClient[] {
-  const weeks = options.weeks ?? 6;
-  const now = options.now ?? new Date();
-  const cutoffMs = now.getTime() - weeks * WEEK_MS;
-
-  const due: RebookingClient[] = [];
-  for (const p of profiles) {
-    if (!p.lastVisit) continue; // needs at least one past confirmed booking
-    if (p.nextVisit) continue; // already re-booked
-    const lastMs = new Date(p.lastVisit).getTime();
-    if (Number.isNaN(lastMs) || lastMs > cutoffMs) continue; // too recent
-    const overdueWeeks = Math.floor((now.getTime() - lastMs) / WEEK_MS);
-    const lastTreatment =
-      p.bookings.find((b) => b.start === p.lastVisit)?.treatment ??
-      p.treatmentsList[0] ??
-      "";
-    due.push({
-      clientId: p.clientId,
-      displayName: p.displayName,
-      email: p.email,
-      phone: p.phone,
-      lang: p.lang,
-      lastVisit: p.lastVisit,
-      lastTreatment,
-      overdueWeeks,
-      totalSpendEgp: p.totalSpendEgp,
-      tags: p.tags,
-      suggestedDraft: composeCheckInDraft(p, lastTreatment),
-    });
-  }
-  return due.sort((a, b) => b.overdueWeeks - a.overdueWeeks);
-}
-
-/** Live re-booking radar (builds the directory, then computes). */
-export async function rebookingRadar(
-  options: BuildOptions & { weeks?: number } = {}
-): Promise<RebookingClient[]> {
-  const { rebooking } = await getClientsOverview(options);
-  return rebooking;
-}
-
 // --- Branded draft composition (DRAFT ONLY — never sends) ----------------------
 
 function firstName(displayName: string): string {
@@ -1220,27 +1003,21 @@ function firstName(displayName: string): string {
  * sent here.
  */
 export function composeCheckInDraft(
-  profile: Pick<ClientProfile, "displayName" | "lang">,
-  lastTreatment: string
+  profile: Pick<ClientProfile, "displayName" | "lang">
 ): { subject: string; body: string } {
   const ru = (profile.lang || "en").startsWith("ru");
   const name = firstName(profile.displayName);
-  const treatment = lastTreatment.trim();
 
   if (ru) {
     const hi = name ? `Здравствуйте, ${name}!` : "Здравствуйте!";
-    const ref = treatment
-      ? `С нашей последней встречи («${treatment}») прошло некоторое время, и я подумала о вас.`
-      : "С нашей последней встречи прошло некоторое время, и я подумала о вас.";
     return {
-      subject: "Пора побаловать себя — Fayek OS",
+      subject: "Кое-что новое для вас — Fayek OS",
       body: [
         hi,
         "",
-        ref,
-        "Будет чудесно снова видеть вас в студии. Если захотите подобрать удобное время или обсудить уход индивидуально, я всегда рада помочь.",
+        "Давно вас не было — и вы пришли на ум. У нас появились новинки, будет приятно, если заглянете.",
         "",
-        "Записаться можно онлайн: https://shop.fayek-os.example.com/book",
+        "Ответьте на это письмо, если нужна помощь с выбором.",
         "",
         "С теплом,",
         "Fayek OS",
@@ -1254,11 +1031,9 @@ export function composeCheckInDraft(
     body: [
       hi,
       "",
-      "It has been a little while, and you came to mind — we have new handmade products in, just in time for the season.",
+      "It has been a little while, and you came to mind — we have new products in.",
       "",
       "Have a browse whenever you like, and reply here if you'd like a hand choosing.",
-      "",
-      "Shop the collection: https://fayek-os.example.com/shop.html",
       "",
       "Warmly,",
       "Fayek OS",
@@ -1267,23 +1042,18 @@ export function composeCheckInDraft(
 }
 
 /**
- * A general client email DRAFT for a given intent (check-in / reply / custom).
- * Returns subject + plain-text body for Fayek OS to review; it does NOT send
- * (she sends via the existing email_send tool, which keeps the third-party
- * confirm gate). Keeps the women-only + consultation persona rules.
+ * A general client email DRAFT for a given intent (check-in / reply / thanks /
+ * custom). Returns subject + plain-text body for the owner to review; it does
+ * NOT send (she sends via the existing email_send tool, which keeps the
+ * third-party confirm gate).
  */
 export function composeClientDraft(
-  profile: Pick<
-    ClientProfile,
-    "displayName" | "lang" | "lastVisit" | "treatmentsList"
-  >,
+  profile: Pick<ClientProfile, "displayName" | "lang">,
   intent: "checkin" | "reply" | "thanks" | "custom",
-  message?: string,
-  now: Date = new Date()
+  message?: string
 ): { subject: string; body: string } {
   if (intent === "checkin") {
-    const lastTreatment = profile.treatmentsList[0] ?? "";
-    return composeCheckInDraft(profile, lastTreatment);
+    return composeCheckInDraft(profile);
   }
 
   const ru = (profile.lang || "en").startsWith("ru");
@@ -1297,7 +1067,7 @@ export function composeClientDraft(
         body: [
           name ? `Здравствуйте, ${name}!` : "Здравствуйте!",
           "",
-          "Спасибо, что доверились мне и выбрали студию. Мне было очень приятно работать с вами.",
+          "Спасибо, что доверились нам и сделали заказ. Нам было очень приятно.",
           extra ? `\n${extra}` : "",
           "",
           "С теплом,",

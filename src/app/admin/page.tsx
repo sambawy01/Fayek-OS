@@ -8,7 +8,6 @@ import {
   getClientsOverview,
   toClientSummary,
   type ClientSummary,
-  type RebookingClient,
   type UnlinkedOverlay,
 } from "@/lib/crm";
 import AdminTabs from "./admin-tabs";
@@ -51,7 +50,6 @@ export default async function AdminPage({
   let financePnl: PnL | null = null;
   let financeError: string | null = null;
   let clientSummaries: ClientSummary[] = [];
-  let rebooking: RebookingClient[] = [];
   let unlinkedOverlays: UnlinkedOverlay[] = [];
   let clientsError: string | null = null;
   const monthPeriod = resolvePeriod({ period: "month" });
@@ -62,7 +60,7 @@ export default async function AdminPage({
       listOrders({ limit: 100 }),
       getCatalog(),
       monthPeriod.ok ? buildPnL(monthPeriod.period) : Promise.reject(new Error("bad period")),
-      getClientsOverview({ weeks: 6 }),
+      getClientsOverview(),
     ]);
   if (ordersResult.status === "fulfilled") {
     orders = ordersResult.value;
@@ -84,7 +82,6 @@ export default async function AdminPage({
   }
   if (clientsResult.status === "fulfilled") {
     clientSummaries = clientsResult.value.profiles.map(toClientSummary);
-    rebooking = clientsResult.value.rebooking;
     unlinkedOverlays = clientsResult.value.unlinked;
   } else {
     console.error("Admin clients load error:", clientsResult.reason);
@@ -108,7 +105,6 @@ export default async function AdminPage({
       </header>
 
       <AdminTabs
-        rebookingDue={rebooking.length}
         orders={
           <OrdersSection
             orders={orders}
@@ -133,7 +129,6 @@ export default async function AdminPage({
         clients={
           <ClientsSection
             initialClients={clientSummaries}
-            initialRebooking={rebooking}
             initialUnlinked={unlinkedOverlays}
             adminKey={clientKey}
             loadError={clientsError}

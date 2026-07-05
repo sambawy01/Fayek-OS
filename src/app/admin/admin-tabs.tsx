@@ -4,10 +4,9 @@ import { useState, type ReactNode } from "react";
 
 /**
  * Client-side tab switcher for /admin: Orders | Products | Finance | Clients.
- * (The original studio had Bookings + Treatments tabs; Fayek OS is a
- * pure shop, so those were removed.) The server page renders every section
- * once and passes them in as nodes; switching tabs only toggles visibility
- * (hidden sections keep their client state — drafts, inline edits — intact).
+ * The server page renders every section once and passes them in as nodes;
+ * switching tabs only toggles visibility (hidden sections keep their client
+ * state — drafts, inline edits — intact).
  */
 
 export type AdminTabId = "orders" | "products" | "finance" | "clients";
@@ -15,18 +14,16 @@ export type AdminTabId = "orders" | "products" | "finance" | "clients";
 interface TabDef {
   id: AdminTabId;
   label: string;
-  /** Small count badge (e.g. clients due a check-in). Omitted when 0/undefined. */
+  /** Small count badge. Omitted when 0/undefined. */
   badge?: number;
 }
 
 export default function AdminTabs({
-  rebookingDue,
   orders,
   products,
   finance,
   clients,
 }: {
-  rebookingDue: number;
   orders: ReactNode;
   products: ReactNode;
   finance: ReactNode;
@@ -38,7 +35,7 @@ export default function AdminTabs({
     { id: "orders", label: "Orders" },
     { id: "products", label: "Products" },
     { id: "finance", label: "Finance" },
-    { id: "clients", label: "Clients", badge: rebookingDue },
+    { id: "clients", label: "Clients" },
   ];
 
   const panels: Record<AdminTabId, ReactNode> = {
