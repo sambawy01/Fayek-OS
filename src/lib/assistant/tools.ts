@@ -157,7 +157,7 @@ export const TOOLS: OllamaTool[] = [
   ),
   tool(
     "catalog_list",
-    "List shop catalog products: slug, name, prices (EGP/RUB), stock quantity, sold-out and active flags."
+    "List shop catalog products: slug, name, price (EGP), stock quantity, sold-out and active flags."
   ),
   tool(
     "product_update",
@@ -165,7 +165,6 @@ export const TOOLS: OllamaTool[] = [
     {
       slug: { type: "string", description: "Product slug from catalog_list" },
       priceEgp: { type: "number", description: "New price in EGP" },
-      priceRub: { type: "number", description: "New price in RUB" },
       quantity: {
         type: "number",
         description: "New stock quantity (0 = auto sold-out)",
@@ -190,7 +189,7 @@ export const TOOLS: OllamaTool[] = [
   ),
   tool(
     "document_create",
-    "Create a PDF document on the company letterhead and send it to the owner in this chat. Body supports light markdown: '# Heading' lines and '- bullet' lines. English and Russian both render (embedded Cyrillic-capable fonts).",
+    "Create a PDF document on the company letterhead and send it to the owner in this chat. Body supports light markdown: '# Heading' lines and '- bullet' lines. English and Arabic both render.",
     {
       title: { type: "string", description: "Document title" },
       body: { type: "string", description: "Document body (markdownish)" },
@@ -206,18 +205,17 @@ export const TOOLS: OllamaTool[] = [
     "Add a NEW product to the shop catalog. It goes live on the public site immediately after the owner confirms. MUTATING — requires the owner's button confirmation.",
     {
       nameEn: { type: "string", description: "Product name in English" },
-      nameRu: { type: "string", description: "Product name in Russian" },
+      nameAr: { type: "string", description: "Product name in Arabic (optional)" },
       priceEgp: { type: "number", description: "Price in EGP (required)" },
-      priceRub: { type: "number", description: "Price in RUB (optional)" },
       descEn: { type: "string", description: "Description in English (optional)" },
-      descRu: { type: "string", description: "Description in Russian (optional)" },
+      descAr: { type: "string", description: "Description in Arabic (optional)" },
       usageEn: {
         type: "string",
         description: "Usage/application directions in English (optional)",
       },
-      usageRu: {
+      usageAr: {
         type: "string",
-        description: "Usage/application directions in Russian (optional)",
+        description: "Usage/application directions in Arabic (optional)",
       },
       imageUrl: { type: "string", description: "Product photo URL (optional)" },
       quantity: {
@@ -225,7 +223,7 @@ export const TOOLS: OllamaTool[] = [
         description: "Initial stock quantity (omit = stock not tracked)",
       },
     },
-    ["nameEn", "nameRu", "priceEgp"]
+    ["nameEn", "priceEgp"]
   ),
   tool(
     "product_remove",
@@ -637,8 +635,6 @@ export function describeMutation(
       const changes: string[] = [];
       if (typeof args.priceEgp === "number")
         changes.push(`price ${args.priceEgp} EGP`);
-      if (typeof args.priceRub === "number")
-        changes.push(`price ${args.priceRub} RUB`);
       if (typeof args.quantity === "number")
         changes.push(`quantity ${args.quantity}`);
       if (typeof args.soldOut === "boolean")
@@ -653,12 +649,11 @@ export function describeMutation(
         typeof args.quantity === "number"
           ? `, qty ${args.quantity}`
           : ", stock untracked";
-      const rub =
-        typeof args.priceRub === "number" ? ` / ${args.priceRub} RUB` : "";
+      const arName = s("nameAr") ? ` (${s("nameAr")})` : "";
       return (
-        `Add product "${s("nameEn")}" (${s("nameRu")}) — ${
+        `Add product "${s("nameEn")}"${arName} — ${
           typeof args.priceEgp === "number" ? args.priceEgp : "?"
-        } EGP${rub}${qty}\n` +
+        } EGP${qty}\n` +
         `→ The product goes LIVE on the public site immediately.`
       );
     }
@@ -839,7 +834,7 @@ async function execCatalogList(): Promise<string> {
   return catalog
     .map(
       (p) =>
-        `${p.slug} · ${p.en.name} · ${p.priceEgp} EGP / ${p.priceRub} RUB · qty: ${
+        `${p.slug} · ${p.en.name} · ${p.priceEgp} EGP · qty: ${
           p.quantity === null ? "untracked" : p.quantity
         }${effectiveSoldOut(p) ? " · SOLD OUT" : ""}${p.active ? "" : " · hidden"}`
     )
@@ -858,10 +853,6 @@ async function execProductUpdate(
   if (typeof args.priceEgp === "number" && args.priceEgp >= 0) {
     product.priceEgp = Math.round(args.priceEgp);
     changes.push(`price ${product.priceEgp} EGP`);
-  }
-  if (typeof args.priceRub === "number" && args.priceRub >= 0) {
-    product.priceRub = Math.round(args.priceRub);
-    changes.push(`price ${product.priceRub} RUB`);
   }
   if (typeof args.quantity === "number" && args.quantity >= 0) {
     product.quantity = Math.round(args.quantity);
@@ -884,36 +875,32 @@ async function execProductAdd(args: Record<string, unknown>): Promise<string> {
   const str = (k: string) =>
     typeof args[k] === "string" ? (args[k] as string).trim() : "";
   const nameEn = str("nameEn").slice(0, 120);
-  const nameRu = str("nameRu").slice(0, 120);
-  if (!nameEn || !nameRu)
-    return "Both names are required (nameEn and nameRu).";
+  if (!nameEn) return "A product name (nameEn) is required.";
+  // Arabic name is optional — falls back to the English name.
+  const nameAr = (str("nameAr") || nameEn).slice(0, 120);
   if (typeof args.priceEgp !== "number" || args.priceEgp <= 0)
     return "A positive priceEgp is required.";
   const priceEgp = Math.round(args.priceEgp);
-  const priceRub =
-    typeof args.priceRub === "number" && args.priceRub >= 0
-      ? Math.round(args.priceRub)
-      : 0;
   const quantity =
     typeof args.quantity === "number" && args.quantity >= 0
       ? Math.round(args.quantity)
       : null;
   const usageEn = str("usageEn").slice(0, 2000);
-  const usageRu = str("usageRu").slice(0, 2000);
+  const usageAr = str("usageAr").slice(0, 2000);
 
   const catalog = await getCatalog();
   const slug = generateSlug(nameEn, new Set(catalog.map((p) => p.slug)));
   const now = new Date().toISOString();
+  const descEn = str("descEn").slice(0, 2000);
   const product: Product = {
     slug,
-    en: { name: nameEn, sub: "", desc: str("descEn").slice(0, 2000) },
-    ru: { name: nameRu, sub: "", desc: str("descRu").slice(0, 2000) },
+    en: { name: nameEn, sub: "", desc: descEn },
+    ar: { name: nameAr, sub: "", desc: str("descAr").slice(0, 2000) || descEn },
     priceEgp,
-    priceRub,
     photo: str("imageUrl").slice(0, 500),
-    alt: { en: nameEn, ru: nameRu },
-    ...(usageEn || usageRu
-      ? { usage: { en: usageEn, ru: usageRu } }
+    alt: { en: nameEn, ar: nameAr },
+    ...(usageEn || usageAr
+      ? { usage: { en: usageEn, ar: usageAr } }
       : {}),
     quantity,
     soldOut: false,
@@ -923,7 +910,7 @@ async function execProductAdd(args: Record<string, unknown>): Promise<string> {
   };
   catalog.push(product);
   await saveCatalog(catalog);
-  return `Added "${nameEn}" (slug: ${slug}) — ${priceEgp} EGP / ${priceRub} RUB, ${
+  return `Added "${nameEn}" (slug: ${slug}) — ${priceEgp} EGP, ${
     quantity === null ? "stock untracked" : `qty ${quantity}`
   }. It is LIVE on the site now.${
     product.photo ? "" : " No photo yet — add one in /admin when ready."
@@ -1041,7 +1028,7 @@ async function execOrderLookup(
     lines.push(`— ${i.qty}× ${i.names.en} — ${i.lineTotals.egp} EGP`);
   }
   lines.push(
-    `Total: ${order.totals.egp} EGP / ${order.totals.rub} RUB`,
+    `Total: ${order.totals.egp} EGP`,
     `Client language: ${order.lang}`,
     "Status history:"
   );
@@ -1523,7 +1510,7 @@ async function execInStoreSale(args: Record<string, unknown>): Promise<string> {
     let product = catalog.find((p) => p.slug.toLowerCase() === q);
     if (!product) {
       const exact = catalog.filter(
-        (p) => p.en.name.toLowerCase() === q || p.ru.name.toLowerCase() === q
+        (p) => p.en.name.toLowerCase() === q || p.ar.name.toLowerCase() === q
       );
       if (exact.length === 1) product = exact[0];
       else if (exact.length === 0) {
@@ -1549,8 +1536,8 @@ async function execInStoreSale(args: Record<string, unknown>): Promise<string> {
     item = {
       slug: product.slug,
       qty,
-      names: { en: product.en.name, ru: product.ru.name },
-      lineTotals: { egp: lineEgp, rub: product.priceRub * qty },
+      names: { en: product.en.name, ar: product.ar.name },
+      lineTotals: { egp: lineEgp },
     };
     decrement = { slug: product.slug, qty };
     const left =
@@ -1571,8 +1558,8 @@ async function execInStoreSale(args: Record<string, unknown>): Promise<string> {
     item = {
       slug: "",
       qty,
-      names: { en: customName.slice(0, 100), ru: customName.slice(0, 100) },
-      lineTotals: { egp: lineEgp, rub: 0 },
+      names: { en: customName.slice(0, 100), ar: customName.slice(0, 100) },
+      lineTotals: { egp: lineEgp },
       ...(photo ? { photo } : {}),
     };
     stockNote = "Store-only item — website stock unchanged.";
@@ -1587,7 +1574,7 @@ async function execInStoreSale(args: Record<string, unknown>): Promise<string> {
     createdAt,
     status: "delivered",
     items: [item],
-    totals: { egp: lineEgp, rub: item.lineTotals.rub },
+    totals: { egp: lineEgp },
     name: "Walk-in",
     phone: str("customerPhone").slice(0, 40),
     email: str("customerEmail").slice(0, 120),

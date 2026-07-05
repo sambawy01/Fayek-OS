@@ -65,8 +65,8 @@ export interface StoredOrderItem {
   /** Catalog slug, or "" for a custom in-store-only item (not on the website). */
   slug: string;
   qty: number;
-  names: { en: string; ru: string };
-  lineTotals: { egp: number; rub: number };
+  names: { en: string; ar: string };
+  lineTotals: { egp: number };
   /** Photo for a custom in-store item (uploaded at the POS). */
   photo?: string;
 }
@@ -76,14 +76,14 @@ export interface StoredOrder {
   createdAt: string; // ISO 8601
   status: OrderStatus;
   items: StoredOrderItem[];
-  totals: { egp: number; rub: number };
+  totals: { egp: number };
   name: string;
   phone: string;
   /** Optional — "" when the buyer left it blank. */
   email: string;
   address: string;
   note: string;
-  lang: "en" | "ru";
+  lang: "en" | "ar";
   /** Sales channel. Absent on legacy orders = treat as "online" (website COD).
    *  "in_store" = a physical sale recorded by the owner at the Egypt shop. */
   channel?: "online" | "in_store";

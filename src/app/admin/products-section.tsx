@@ -92,16 +92,15 @@ interface FormState {
   enSub: string;
   enDesc: string;
   enUsage: string;
-  ruName: string;
-  ruSub: string;
-  ruDesc: string;
-  ruUsage: string;
+  arName: string;
+  arSub: string;
+  arDesc: string;
+  arUsage: string;
   priceEgp: string;
-  priceRub: string;
   quantity: string; // "" = untracked
   photo: string;
   altEn: string;
-  altRu: string;
+  altAr: string;
   active: boolean;
 }
 
@@ -111,16 +110,15 @@ function toFormState(p: Product | null): FormState {
     enSub: p?.en.sub ?? "",
     enDesc: p?.en.desc ?? "",
     enUsage: p?.usage?.en ?? "",
-    ruName: p?.ru.name ?? "",
-    ruSub: p?.ru.sub ?? "",
-    ruDesc: p?.ru.desc ?? "",
-    ruUsage: p?.usage?.ru ?? "",
+    arName: p?.ar.name ?? "",
+    arSub: p?.ar.sub ?? "",
+    arDesc: p?.ar.desc ?? "",
+    arUsage: p?.usage?.ar ?? "",
     priceEgp: p ? String(p.priceEgp) : "",
-    priceRub: p ? String(p.priceRub) : "",
     quantity: p && p.quantity !== null ? String(p.quantity) : "",
     photo: p?.photo ?? "",
     altEn: p?.alt.en ?? "",
-    altRu: p?.alt.ru ?? "",
+    altAr: p?.alt.ar ?? "",
     active: p?.active ?? true,
   };
 }
@@ -181,17 +179,12 @@ function ProductForm({
   async function submit() {
     setError(null);
     const priceEgp = Number(form.priceEgp);
-    const priceRub = Number(form.priceRub);
-    if (!form.enName.trim() || !form.ruName.trim()) {
-      setError("Both EN and RU names are required.");
+    if (!form.enName.trim()) {
+      setError("An English name is required.");
       return;
     }
     if (!Number.isInteger(priceEgp) || priceEgp < 0 || form.priceEgp === "") {
       setError("Price (EGP) must be a whole number.");
-      return;
-    }
-    if (!Number.isInteger(priceRub) || priceRub < 0 || form.priceRub === "") {
-      setError("Price (RUB) must be a whole number.");
       return;
     }
     let quantity: number | null = null;
@@ -203,15 +196,16 @@ function ProductForm({
       }
     }
 
+    // Arabic fields are optional; fall back to the English values.
+    const arName = form.arName.trim() || form.enName.trim();
     const body = {
       en: { name: form.enName.trim(), sub: form.enSub.trim(), desc: form.enDesc.trim() },
-      ru: { name: form.ruName.trim(), sub: form.ruSub.trim(), desc: form.ruDesc.trim() },
-      usage: { en: form.enUsage.trim(), ru: form.ruUsage.trim() },
+      ar: { name: arName, sub: form.arSub.trim(), desc: form.arDesc.trim() || form.enDesc.trim() },
+      usage: { en: form.enUsage.trim(), ar: form.arUsage.trim() },
       priceEgp,
-      priceRub,
       quantity,
       photo: form.photo.trim(),
-      alt: { en: form.altEn.trim(), ru: form.altRu.trim() },
+      alt: { en: form.altEn.trim(), ar: form.altAr.trim() || arName },
       active: form.active,
     };
 
@@ -278,38 +272,34 @@ function ProductForm({
         </div>
         <div className="space-y-3">
           <div>
-            <label className={labelCls}>Name (RU)</label>
-            <input className={inputCls} value={form.ruName} onChange={(e) => set({ ruName: e.target.value })} />
+            <label className={labelCls}>Name (AR) — optional</label>
+            <input className={inputCls} dir="rtl" value={form.arName} onChange={(e) => set({ arName: e.target.value })} />
           </div>
           <div>
-            <label className={labelCls}>Subtitle (RU)</label>
-            <input className={inputCls} value={form.ruSub} placeholder="линия DM · 150 мл" onChange={(e) => set({ ruSub: e.target.value })} />
+            <label className={labelCls}>Subtitle (AR)</label>
+            <input className={inputCls} dir="rtl" value={form.arSub} onChange={(e) => set({ arSub: e.target.value })} />
           </div>
           <div>
-            <label className={labelCls}>Description (RU)</label>
-            <textarea className={inputCls} rows={3} value={form.ruDesc} onChange={(e) => set({ ruDesc: e.target.value })} />
+            <label className={labelCls}>Description (AR)</label>
+            <textarea className={inputCls} dir="rtl" rows={3} value={form.arDesc} onChange={(e) => set({ arDesc: e.target.value })} />
           </div>
           <div>
-            <label className={labelCls}>Usage instructions (RU)</label>
+            <label className={labelCls}>Usage instructions (AR)</label>
             <textarea
               className={inputCls}
+              dir="rtl"
               rows={3}
-              value={form.ruUsage}
-              placeholder="Инструкция производителя по применению"
-              onChange={(e) => set({ ruUsage: e.target.value })}
+              value={form.arUsage}
+              onChange={(e) => set({ arUsage: e.target.value })}
             />
           </div>
         </div>
       </div>
 
-      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <label className={labelCls}>Price (EGP)</label>
           <input className={inputCls} inputMode="numeric" value={form.priceEgp} onChange={(e) => set({ priceEgp: e.target.value })} />
-        </div>
-        <div>
-          <label className={labelCls}>Price (RUB)</label>
-          <input className={inputCls} inputMode="numeric" value={form.priceRub} onChange={(e) => set({ priceRub: e.target.value })} />
         </div>
         <div>
           <label className={labelCls}>Quantity (empty = untracked)</label>
@@ -354,8 +344,8 @@ function ProductForm({
             <input className={inputCls} value={form.altEn} onChange={(e) => set({ altEn: e.target.value })} />
           </div>
           <div>
-            <label className={labelCls}>Photo alt text (RU)</label>
-            <input className={inputCls} value={form.altRu} onChange={(e) => set({ altRu: e.target.value })} />
+            <label className={labelCls}>Photo alt text (AR)</label>
+            <input className={inputCls} dir="rtl" value={form.altAr} onChange={(e) => set({ altAr: e.target.value })} />
           </div>
         </div>
         <label className="flex items-center gap-2 text-sm text-[#38492E]">
@@ -565,8 +555,7 @@ function ProductRow({
             ))}
           </div>
           <p className="mt-0.5 text-sm text-[#5E6B4F]">
-            {product.priceEgp.toLocaleString("en-EG")} EGP ·{" "}
-            {product.priceRub.toLocaleString("ru-RU")} RUB
+            {product.priceEgp.toLocaleString("en-EG")} EGP
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <QuantityEditor

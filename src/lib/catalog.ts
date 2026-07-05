@@ -30,12 +30,11 @@ export interface ProductCopy {
 export interface Product {
   slug: string;
   en: ProductCopy;
-  ru: ProductCopy;
+  ar: ProductCopy;
   priceEgp: number;
-  priceRub: number;
   /** Absolute URL (blob upload) or site-relative path ("assets/img/…"). */
   photo: string;
-  alt: { en: string; ru: string };
+  alt: { en: string; ar: string };
   /** null = stock not tracked; 0 = auto sold-out. */
   quantity: number | null;
   /** Manual sold-out flag, independent of quantity. */
@@ -47,7 +46,7 @@ export interface Product {
    * Surfaced to the AI concierge and the public API so clients can be told
    * how to use what they bought — "according to the manufacturer".
    */
-  usage?: { en: string; ru: string };
+  usage?: { en: string; ar: string };
   createdAt: string;
   updatedAt: string;
 }
@@ -55,16 +54,15 @@ export interface Product {
 /** Shape served by the public GET /api/products — no internal fields. */
 export interface PublicProduct {
   slug: string;
-  name: { en: string; ru: string };
-  sub: { en: string; ru: string };
-  desc: { en: string; ru: string };
+  name: { en: string; ar: string };
+  sub: { en: string; ar: string };
+  desc: { en: string; ar: string };
   priceEgp: number;
-  priceRub: number;
   photo: string;
-  alt: { en: string; ru: string };
+  alt: { en: string; ar: string };
   soldOut: boolean;
   /** Manufacturer usage directions, when the owner has provided them. */
-  usage?: { en: string; ru: string };
+  usage?: { en: string; ar: string };
 }
 
 export const CATALOG_PATHNAME = "catalog/products.json";
@@ -78,16 +76,16 @@ const SEED_TIMESTAMP = "2026-06-11T00:00:00.000Z";
  * line item in the company stock sheet, carrying its real on-hand quantity and
  * its code as the name/SKU. The full sheet text is the description; `sub` is
  * left empty and the owner can enrich copy/photos from /admin. Single-currency
- * (EGP): the RU strings mirror the EN ones and priceRub stays 0.
+ * (EGP) and bilingual EN/AR: the Arabic strings mirror the English ones until
+ * the owner adds Arabic copy in /admin.
  */
 export const SEED: readonly Product[] = SHOP_PRODUCTS.map((p) => ({
   slug: p.slug,
   en: { name: p.nameEn, sub: "", desc: p.descEn },
-  ru: { name: p.nameRu, sub: "", desc: p.descEn },
+  ar: { name: p.nameAr, sub: "", desc: p.descEn },
   priceEgp: p.priceEgp,
-  priceRub: p.priceRub,
   photo: "",
-  alt: { en: p.nameEn, ru: p.nameRu },
+  alt: { en: p.nameEn, ar: p.nameAr },
   quantity: p.quantity,
   soldOut: false,
   active: true,
@@ -99,7 +97,7 @@ function cloneSeed(): Product[] {
   return SEED.map((p) => ({
     ...p,
     en: { ...p.en },
-    ru: { ...p.ru },
+    ar: { ...p.ar },
     alt: { ...p.alt },
     ...(p.usage ? { usage: { ...p.usage } } : {}),
   }));
@@ -115,15 +113,14 @@ export function effectiveSoldOut(p: Product): boolean {
 export function toPublicProduct(p: Product): PublicProduct {
   return {
     slug: p.slug,
-    name: { en: p.en.name, ru: p.ru.name },
-    sub: { en: p.en.sub, ru: p.ru.sub },
-    desc: { en: p.en.desc, ru: p.ru.desc },
+    name: { en: p.en.name, ar: p.ar.name },
+    sub: { en: p.en.sub, ar: p.ar.sub },
+    desc: { en: p.en.desc, ar: p.ar.desc },
     priceEgp: p.priceEgp,
-    priceRub: p.priceRub,
     photo: p.photo,
     alt: { ...p.alt },
     soldOut: effectiveSoldOut(p),
-    ...(p.usage && (p.usage.en || p.usage.ru)
+    ...(p.usage && (p.usage.en || p.usage.ar)
       ? { usage: { ...p.usage } }
       : {}),
   };
@@ -236,9 +233,4 @@ export function generateSlug(nameEn: string, existing: Set<string>): string {
 /** "3540" -> "LE 3,540". */
 export function formatEgp(amount: number): string {
   return `LE ${amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
-}
-
-/** "4900" -> "4 900 ₽". */
-export function formatRub(amount: number): string {
-  return `${amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ")} ₽`;
 }

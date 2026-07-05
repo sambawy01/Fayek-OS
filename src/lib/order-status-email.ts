@@ -1,4 +1,4 @@
-import { formatEgp, formatRub } from "./shop-products";
+import { formatEgp } from "./shop-products";
 import { brandedEmailHtml, escapeHtml } from "./branded-email";
 import type {
   CancelReason,
@@ -8,13 +8,12 @@ import type {
 } from "./orders";
 
 /**
- * Client-facing status emails for shop orders
+ * Client-facing status emails for orders
  * (confirmed / shipped / delivered / cancelled).
  *
- * Mirrors the buyer-confirmation email in /api/order: same dark logo band
- * header, same earthy palette, same Resend REST pattern. Lang-aware (en/ru)
- * from the order's stored `lang`. Sent from orders@ with reply-to
- * hello@ so replies land in the owner's inbox.
+ * Same dark logo band header, same earthy palette, same Resend REST pattern.
+ * Lang-aware (en/ar) from the order's stored `lang`. Sent from orders@ with
+ * reply-to info@ so replies land in the owner's inbox.
  *
  * Cancellation emails include the reason: known reason codes get a localized
  * label; free text ("other" or an extra note) is passed through verbatim.
@@ -33,31 +32,31 @@ export type EmailStatus = "confirmed" | "shipped" | "delivered" | "cancelled";
 /** Localized labels for the known cancellation reason codes. */
 const CANCEL_REASON_LABELS: Record<
   Exclude<CancelReasonCode, "other">,
-  { en: string; ru: string }
+  { en: string; ar: string }
 > = {
-  "out-of-stock": { en: "Out of stock", ru: "Товара нет в наличии" },
+  "out-of-stock": { en: "Out of stock", ar: "غير متوفر بالمخزون" },
   unreachable: {
     en: "Could not reach the client",
-    ru: "Не удалось связаться с клиентом",
+    ar: "تعذّر الوصول إلى العميل",
   },
   "client-request": {
     en: "Cancelled at client's request",
-    ru: "Отменён по просьбе клиента",
+    ar: "أُلغي بناءً على طلب العميل",
   },
   "delivery-area": {
     en: "Delivery area not covered",
-    ru: "Зона доставки не обслуживается",
+    ar: "منطقة التوصيل غير مغطاة",
   },
 };
 
 /** "Label — free text" in the order's language; free text verbatim. */
-function cancelReasonText(reason: CancelReason | undefined, ru: boolean): string {
-  if (!reason) return ru ? "не указана" : "not specified";
+function cancelReasonText(reason: CancelReason | undefined, ar: boolean): string {
+  if (!reason) return ar ? "غير محدد" : "not specified";
   if (reason.code === "other") {
-    return reason.note || (ru ? "не указана" : "not specified");
+    return reason.note || (ar ? "غير محدد" : "not specified");
   }
   const label = CANCEL_REASON_LABELS[reason.code];
-  const base = ru ? label.ru : label.en;
+  const base = ar ? label.ar : label.en;
   return reason.note ? `${base} — ${reason.note}` : base;
 }
 
@@ -80,25 +79,25 @@ function copyFor(
   status: EmailStatus,
   cancelReason?: CancelReason
 ): StatusCopy {
-  const ru = order.lang === "ru";
+  const ar = order.lang === "ar";
   const n = order.orderNumber;
 
   if (status === "confirmed") {
-    return ru
+    return ar
       ? {
-          subject: `Ваш заказ ${n} подтверждён`,
-          heading: "Заказ подтверждён",
-          greeting: `Здравствуйте, ${order.name}!`,
+          subject: `تم تأكيد طلبك ${n}`,
+          heading: "تم تأكيد الطلب",
+          greeting: `مرحباً ${order.name}،`,
           paragraphs: [
-            `Хорошие новости — ваш заказ ${n} подтверждён. Наша команда свяжется с вами в WhatsApp, чтобы подтвердить время доставки. Оплата при получении (наличными).`,
+            `خبر جيد — تم تأكيد طلبك ${n}. سيتواصل معك فريقنا عبر واتساب لتأكيد موعد التسليم. الدفع عند الاستلام.`,
           ],
-          recapTitle: "Состав заказа",
-          product: "Товар",
-          qty: "Кол-во",
-          lineTotal: "Сумма",
-          total: "Итого",
-          footnote: "Доставка по Египту в течение 24–72 часов.",
-          signoff: "С теплом,",
+          recapTitle: "ملخص الطلب",
+          product: "المنتج",
+          qty: "الكمية",
+          lineTotal: "الإجمالي",
+          total: "الإجمالي الكلي",
+          footnote: "التوصيل خلال 24–72 ساعة داخل مصر.",
+          signoff: "مع تحياتنا،",
         }
       : {
           subject: `Your order ${n} is confirmed`,
@@ -118,24 +117,24 @@ function copyFor(
   }
 
   if (status === "cancelled") {
-    const reasonText = cancelReasonText(cancelReason, ru);
-    return ru
+    const reasonText = cancelReasonText(cancelReason, ar);
+    return ar
       ? {
-          subject: `Ваш заказ ${n} отменён`,
-          heading: "Заказ отменён",
-          greeting: `Здравствуйте, ${order.name}!`,
+          subject: `تم إلغاء طلبك ${n}`,
+          heading: "تم إلغاء الطلب",
+          greeting: `مرحباً ${order.name}،`,
           paragraphs: [
-            `К сожалению, ваш заказ ${n} был отменён.`,
-            `Причина: ${reasonText}.`,
-            `Если это стало неожиданностью, напишите нам на ${CONTACT_EMAIL} или спросите Fayek на нашем сайте.`,
+            `نأسف — تم إلغاء طلبك ${n}.`,
+            `السبب: ${reasonText}.`,
+            `إذا كان هذا غير متوقع، يُرجى مراسلتنا على ${CONTACT_EMAIL}.`,
           ],
-          recapTitle: "Состав заказа",
-          product: "Товар",
-          qty: "Кол-во",
-          lineTotal: "Сумма",
-          total: "Итого",
+          recapTitle: "ملخص الطلب",
+          product: "المنتج",
+          qty: "الكمية",
+          lineTotal: "الإجمالي",
+          total: "الإجمالي الكلي",
           footnote: null,
-          signoff: "С теплом,",
+          signoff: "مع تحياتنا،",
         }
       : {
           subject: `Your order ${n} has been cancelled`,
@@ -144,7 +143,7 @@ function copyFor(
           paragraphs: [
             `We're sorry — your order ${n} has been cancelled.`,
             `Reason: ${reasonText}.`,
-            `If this is unexpected, write to ${CONTACT_EMAIL} or ask Fayek on our site.`,
+            `If this is unexpected, write to ${CONTACT_EMAIL}.`,
           ],
           recapTitle: "Order recap",
           product: "Product",
@@ -157,21 +156,21 @@ function copyFor(
   }
 
   if (status === "shipped") {
-    return ru
+    return ar
       ? {
-          subject: `Ваш заказ ${n} в пути`,
-          heading: "Заказ отправлен",
-          greeting: `Здравствуйте, ${order.name}!`,
+          subject: `طلبك ${n} في الطريق`,
+          heading: "تم شحن الطلب",
+          greeting: `مرحباً ${order.name}،`,
           paragraphs: [
-            `Хорошие новости — ваш заказ ${n} отправлен. Наша команда свяжется с вами в WhatsApp, чтобы подтвердить время доставки. Оплата при получении (наличными).`,
+            `خبر جيد — تم شحن طلبك ${n}. سيتواصل معك فريقنا عبر واتساب لتأكيد موعد التسليم. الدفع عند الاستلام.`,
           ],
-          recapTitle: "Состав заказа",
-          product: "Товар",
-          qty: "Кол-во",
-          lineTotal: "Сумма",
-          total: "Итого",
-          footnote: "Доставка по Египту в течение 24–72 часов.",
-          signoff: "С теплом,",
+          recapTitle: "ملخص الطلب",
+          product: "المنتج",
+          qty: "الكمية",
+          lineTotal: "الإجمالي",
+          total: "الإجمالي الكلي",
+          footnote: "التوصيل خلال 24–72 ساعة داخل مصر.",
+          signoff: "مع تحياتنا،",
         }
       : {
           subject: `Your order ${n} is on its way`,
@@ -190,22 +189,22 @@ function copyFor(
         };
   }
 
-  return ru
+  return ar
     ? {
-        subject: `Ваш заказ ${n} доставлен`,
-        heading: "Заказ доставлен",
-        greeting: `Здравствуйте, ${order.name}!`,
+        subject: `تم تسليم طلبك ${n}`,
+        heading: "تم تسليم الطلب",
+        greeting: `مرحباً ${order.name}،`,
         paragraphs: [
-          `Спасибо за ваш заказ ${n} в Fayek Abrasives!`,
-          "Надеемся, вам понравятся ваши средства. За советами по их использованию обращайтесь к Василию на нашем сайте или напишите нам.",
+          `شكراً لطلبك ${n} من Fayek Abrasives!`,
+          "نأمل أن تنال منتجاتنا رضاك. لأي استفسار عن الاستخدام، يُرجى مراسلتنا.",
         ],
-        recapTitle: "Состав заказа",
-        product: "Товар",
-        qty: "Кол-во",
-        lineTotal: "Сумма",
-        total: "Итого",
+        recapTitle: "ملخص الطلب",
+        product: "المنتج",
+        qty: "الكمية",
+        lineTotal: "الإجمالي",
+        total: "الإجمالي الكلي",
         footnote: null,
-        signoff: "С теплом,",
+        signoff: "مع تحياتنا،",
       }
     : {
         subject: `Your order ${n} has been delivered`,
@@ -213,7 +212,7 @@ function copyFor(
         greeting: `Hello ${order.name},`,
         paragraphs: [
           `Thank you for your order ${n} with Fayek Abrasives!`,
-          "We hope you love your products. For advice on using them, ask Fayek on our website or write to us.",
+          "We hope the products serve you well. For any advice on using them, write to us.",
         ],
         recapTitle: "Order recap",
         product: "Product",
@@ -231,13 +230,13 @@ export function buildOrderStatusEmail(
   cancelReason?: CancelReason
 ): { subject: string; text: string; html: string } {
   const t = copyFor(order, status, cancelReason);
-  const ru = order.lang === "ru";
+  const ar = order.lang === "ar";
   const itemName = (item: StoredOrderItem) =>
-    ru ? item.names.ru : item.names.en;
+    ar ? item.names.ar : item.names.en;
 
   const textItems = order.items.map(
     (item) =>
-      `- ${itemName(item)} × ${item.qty} = ${formatEgp(item.lineTotals.egp)} / ${formatRub(item.lineTotals.rub)}`
+      `- ${itemName(item)} × ${item.qty} = ${formatEgp(item.lineTotals.egp)}`
   );
   const text = [
     t.greeting,
@@ -247,7 +246,7 @@ export function buildOrderStatusEmail(
     `${t.recapTitle}:`,
     ...textItems,
     "",
-    `${t.total}: ${formatEgp(order.totals.egp)} / ${formatRub(order.totals.rub)}`,
+    `${t.total}: ${formatEgp(order.totals.egp)}`,
     ...(t.footnote ? ["", t.footnote] : []),
     "",
     t.signoff,
@@ -260,7 +259,7 @@ export function buildOrderStatusEmail(
         `<tr>` +
         `<td style="padding:8px 12px 8px 0;color:#3A332C;font-size:14px;border-bottom:1px solid #E5DCCB;">${escapeHtml(itemName(item))}</td>` +
         `<td style="padding:8px 12px;color:#3A332C;font-size:14px;border-bottom:1px solid #E5DCCB;text-align:center;">${item.qty}</td>` +
-        `<td style="padding:8px 0;color:#3A332C;font-size:14px;border-bottom:1px solid #E5DCCB;text-align:right;white-space:nowrap;">${escapeHtml(formatEgp(item.lineTotals.egp))}<br><span style="color:#847866;font-size:13px;">${escapeHtml(formatRub(item.lineTotals.rub))}</span></td>` +
+        `<td style="padding:8px 0;color:#3A332C;font-size:14px;border-bottom:1px solid #E5DCCB;text-align:right;white-space:nowrap;">${escapeHtml(formatEgp(item.lineTotals.egp))}</td>` +
         `</tr>`
     )
     .join("");
@@ -283,7 +282,7 @@ export function buildOrderStatusEmail(
         ${itemRows}
         <tr>
           <td colspan="2" style="padding:12px 12px 0 0;color:#3A332C;font-size:15px;font-weight:bold;">${escapeHtml(t.total)}</td>
-          <td style="padding:12px 0 0;color:#3A332C;font-size:15px;font-weight:bold;text-align:right;white-space:nowrap;">${escapeHtml(formatEgp(order.totals.egp))}<br><span style="font-weight:normal;color:#847866;font-size:13px;">${escapeHtml(formatRub(order.totals.rub))}</span></td>
+          <td style="padding:12px 0 0;color:#3A332C;font-size:15px;font-weight:bold;text-align:right;white-space:nowrap;">${escapeHtml(formatEgp(order.totals.egp))}</td>
         </tr>
       </table>
       ${

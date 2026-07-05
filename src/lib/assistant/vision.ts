@@ -345,7 +345,7 @@ export async function analyzePhoto(
       `I photographed a product to add to the shop. Call product_add for it. ` +
       `English name: "${name}". Short English description: "${ex.productDesc}". ` +
       `${caption.trim() ? `My caption: "${caption.trim()}". ` : ""}` +
-      `product_add REQUIRES a Russian name and a price in EGP — if my caption didn't give them, ASK me for the Russian name and the EGP price before calling the tool; do not guess them.`;
+      `product_add REQUIRES a price in EGP — if my caption didn't give it, ASK me for the EGP price before calling the tool; do not guess it. An Arabic name is optional.`;
     const echo =
       `📦 From the product photo I read:\n` +
       `— name: ${name}` +

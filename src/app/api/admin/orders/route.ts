@@ -83,7 +83,6 @@ export async function POST(request: NextRequest) {
   const items: StoredOrderItem[] = [];
   const toDecrement: InItem[] = [];
   let totalEgp = 0;
-  let totalRub = 0;
   for (const raw of b.items) {
     const it = raw as {
       slug?: unknown;
@@ -129,8 +128,8 @@ export async function POST(request: NextRequest) {
       items.push({
         slug: "",
         qty,
-        names: { en: name, ru: name },
-        lineTotals: { egp: lineEgp, rub: 0 },
+        names: { en: name, ar: name },
+        lineTotals: { egp: lineEgp },
         ...(photo ? { photo } : {}),
       });
       continue;
@@ -163,14 +162,12 @@ export async function POST(request: NextRequest) {
       );
     }
     const lineEgp = product.priceEgp * qty;
-    const lineRub = product.priceRub * qty;
     totalEgp += lineEgp;
-    totalRub += lineRub;
     items.push({
       slug,
       qty,
-      names: { en: product.en.name, ru: product.ru.name },
-      lineTotals: { egp: lineEgp, rub: lineRub },
+      names: { en: product.en.name, ar: product.ar.name },
+      lineTotals: { egp: lineEgp },
     });
     toDecrement.push({ slug, qty });
   }
@@ -207,7 +204,7 @@ export async function POST(request: NextRequest) {
     createdAt,
     status: "delivered", // paid & collected in person → a revenue status
     items,
-    totals: { egp: totalEgp, rub: totalRub },
+    totals: { egp: totalEgp },
     name: customerName,
     phone: customerPhone,
     email: customerEmail,

@@ -82,13 +82,17 @@ plan limits cron frequency/count; trim `vercel.json` to fit your plan.
 
 ## Notes for whoever rebrands this
 
-The genericization kept the base data model intact where ripping it out would be
-risky. Known items to revisit:
+Notes on the localization and known items to revisit:
 
-- **Currency**: prices are **EGP** (`priceEgp`). A second currency (`priceRub`)
-  and a second language (`ru`) exist in the schema but are **dormant** (RU
-  mirrors EN, `priceRub` stays 0) — enable them without a data-model change, or
-  strip them for a single-currency store.
+- **Currency**: single-currency **EGP** (`priceEgp`). The Russian ruble second
+  currency was removed.
+- **Languages**: bilingual **English + Arabic** (`en` / `ar` on products, orders
+  and customer emails). Arabic fields are optional in `/admin` and fall back to
+  the English values, so you can run English-only and add Arabic per product.
+- **Arabic in PDFs**: the letterhead/document PDF generator embeds Latin fonts
+  only — Arabic text in generated PDFs will not shape correctly yet. Email/HTML
+  and the admin UI render Arabic fine; embedding an Arabic (RTL-shaping) font in
+  `src/lib/assistant/letterhead-pdf.ts` is the follow-up if you need Arabic PDFs.
 - **Logo assets**: `public/logo.png` and `public/assets/logo-*.png` are carried
   over from the source project and used in emails/PDF letterheads. Replace them
   with your own artwork.

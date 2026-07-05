@@ -65,9 +65,9 @@ export function normalizeEmail(email: string | null | undefined): string {
 }
 
 /**
- * Phone reduced to its last 9 digits (digits only). Egyptian/Russian numbers
- * vary by country code and formatting; the last 9 digits are the stable
- * subscriber part. "" when there are no digits.
+ * Phone reduced to its last 9 digits (digits only). Numbers vary by country
+ * code and formatting; the last 9 digits are the stable subscriber part.
+ * "" when there are no digits.
  */
 export function normalizePhone(phone: string | null | undefined): string {
   const digits = (phone ?? "").replace(/\D/g, "");
@@ -832,7 +832,7 @@ async function buildProfilesWithOverlay(
         (o) =>
           ({
             status: o.status,
-            totals: { egp: o.totalEgp, rub: 0 },
+            totals: { egp: o.totalEgp },
           }) as StoredOrder
       )
     );
@@ -998,28 +998,28 @@ function firstName(displayName: string): string {
 
 /**
  * A warm win-back / check-in DRAFT (subject + plain-text body) for a customer
- * who hasn't ordered in a while — points them back to the shop. EN/RU by the
+ * who hasn't ordered in a while — points them back to the shop. EN/AR by the
  * client's language hint. This is a DRAFT for the owner to review — nothing is
  * sent here.
  */
 export function composeCheckInDraft(
   profile: Pick<ClientProfile, "displayName" | "lang">
 ): { subject: string; body: string } {
-  const ru = (profile.lang || "en").startsWith("ru");
+  const ar = (profile.lang || "en").startsWith("ar");
   const name = firstName(profile.displayName);
 
-  if (ru) {
-    const hi = name ? `Здравствуйте, ${name}!` : "Здравствуйте!";
+  if (ar) {
+    const hi = name ? `مرحباً ${name}،` : "مرحباً،";
     return {
-      subject: "Кое-что новое для вас — Fayek Abrasives",
+      subject: "لدينا ما يهمّك — Fayek Abrasives",
       body: [
         hi,
         "",
-        "Давно вас не было — и вы пришли на ум. У нас появились новинки, будет приятно, если заглянете.",
+        "مرّ وقت منذ آخر تعامل بيننا وتذكّرناك. وصلتنا أصناف جديدة، ويسعدنا أن نخدمك.",
         "",
-        "Ответьте на это письмо, если нужна помощь с выбором.",
+        "ردّ على هذه الرسالة إن رغبت بمساعدة في الاختيار.",
         "",
-        "С теплом,",
+        "مع تحياتنا،",
         "Fayek Abrasives",
       ].join("\n"),
     };
@@ -1056,21 +1056,21 @@ export function composeClientDraft(
     return composeCheckInDraft(profile);
   }
 
-  const ru = (profile.lang || "en").startsWith("ru");
+  const ar = (profile.lang || "en").startsWith("ar");
   const name = firstName(profile.displayName);
   const extra = (message ?? "").trim();
 
   if (intent === "thanks") {
-    if (ru) {
+    if (ar) {
       return {
-        subject: "Спасибо, что были у нас — Fayek Abrasives",
+        subject: "شكراً لتعاملك معنا — Fayek Abrasives",
         body: [
-          name ? `Здравствуйте, ${name}!` : "Здравствуйте!",
+          name ? `مرحباً ${name}،` : "مرحباً،",
           "",
-          "Спасибо, что доверились нам и сделали заказ. Нам было очень приятно.",
+          "شكراً لثقتك وتعاملك معنا. سعدنا بخدمتك.",
           extra ? `\n${extra}` : "",
           "",
-          "С теплом,",
+          "مع تحياتنا،",
           "Fayek Abrasives",
         ]
           .filter((l) => l !== "")
@@ -1082,7 +1082,7 @@ export function composeClientDraft(
       body: [
         name ? `Hi ${name},` : "Hello,",
         "",
-        "Thank you for choosing Fayek Abrasives — we hope you love your new product.",
+        "Thank you for choosing Fayek Abrasives — we appreciate your business.",
         extra ? `\n${extra}` : "",
         "",
         "Warmly,",
@@ -1094,15 +1094,15 @@ export function composeClientDraft(
   }
 
   // reply / custom — frame the owner's message in the branded voice.
-  if (ru) {
+  if (ar) {
     return {
-      subject: "Сообщение от Fayek Abrasives",
+      subject: "رسالة من Fayek Abrasives",
       body: [
-        name ? `Здравствуйте, ${name}!` : "Здравствуйте!",
+        name ? `مرحباً ${name}،` : "مرحباً،",
         "",
-        extra || "(добавьте текст сообщения)",
+        extra || "(أضف نص الرسالة هنا)",
         "",
-        "С теплом,",
+        "مع تحياتنا،",
         "Fayek Abrasives",
       ].join("\n"),
     };

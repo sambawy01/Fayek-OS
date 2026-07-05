@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
     );
   }
   const input = result.value as Required<
-    Pick<ProductInput, "en" | "ru" | "priceEgp" | "priceRub">
+    Pick<ProductInput, "en" | "ar" | "priceEgp">
   > &
     ProductInput;
 
@@ -74,11 +74,10 @@ export async function POST(request: NextRequest) {
     const product: Product = {
       slug,
       en: input.en,
-      ru: input.ru,
+      ar: input.ar,
       priceEgp: input.priceEgp,
-      priceRub: input.priceRub,
       photo: input.photo ?? "",
-      alt: input.alt ?? { en: "", ru: "" },
+      alt: input.alt ?? { en: "", ar: "" },
       ...(input.usage !== undefined ? { usage: input.usage } : {}),
       quantity: input.quantity !== undefined ? input.quantity : null,
       soldOut: input.soldOut ?? false,

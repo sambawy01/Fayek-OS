@@ -20,13 +20,12 @@ const MAX_QUANTITY = 100_000;
 
 export interface ProductInput {
   en?: ProductCopy;
-  ru?: ProductCopy;
+  ar?: ProductCopy;
   priceEgp?: number;
-  priceRub?: number;
   photo?: string;
-  alt?: { en: string; ru: string };
+  alt?: { en: string; ar: string };
   /** Manufacturer usage directions; both empty strings = none. */
-  usage?: { en: string; ru: string };
+  usage?: { en: string; ar: string };
   quantity?: number | null;
   soldOut?: boolean;
   active?: boolean;
@@ -42,7 +41,7 @@ function str(v: unknown): string | null {
 
 function validateCopy(
   raw: unknown,
-  key: "en" | "ru",
+  key: "en" | "ar",
   requireName: boolean,
   fields: Record<string, string>
 ): ProductCopy | undefined {
@@ -68,7 +67,7 @@ function validateCopy(
 
 function validatePrice(
   raw: unknown,
-  key: "priceEgp" | "priceRub",
+  key: "priceEgp",
   required: boolean,
   fields: Record<string, string>
 ): number | undefined {
@@ -117,13 +116,11 @@ export function validateProductInput(
 
   const en = validateCopy(b.en, "en", create, fields);
   if (en !== undefined) value.en = en;
-  const ru = validateCopy(b.ru, "ru", create, fields);
-  if (ru !== undefined) value.ru = ru;
+  const ar = validateCopy(b.ar, "ar", create, fields);
+  if (ar !== undefined) value.ar = ar;
 
   const priceEgp = validatePrice(b.priceEgp, "priceEgp", create, fields);
   if (priceEgp !== undefined) value.priceEgp = priceEgp;
-  const priceRub = validatePrice(b.priceRub, "priceRub", create, fields);
-  if (priceRub !== undefined) value.priceRub = priceRub;
 
   const photo = validatePhoto(b.photo, fields);
   if (photo !== undefined) value.photo = photo;
@@ -131,22 +128,22 @@ export function validateProductInput(
   if (b.alt !== undefined) {
     const o = (b.alt ?? {}) as Record<string, unknown>;
     const altEn = str(o.en) ?? "";
-    const altRu = str(o.ru) ?? "";
-    if (altEn.length > MAX_ALT || altRu.length > MAX_ALT) {
+    const altAr = str(o.ar) ?? "";
+    if (altEn.length > MAX_ALT || altAr.length > MAX_ALT) {
       fields.alt = `alt texts must be at most ${MAX_ALT} characters`;
     } else {
-      value.alt = { en: altEn, ru: altRu };
+      value.alt = { en: altEn, ar: altAr };
     }
   }
 
   if (b.usage !== undefined) {
     const o = (b.usage ?? {}) as Record<string, unknown>;
     const usageEn = str(o.en) ?? "";
-    const usageRu = str(o.ru) ?? "";
-    if (usageEn.length > MAX_USAGE || usageRu.length > MAX_USAGE) {
+    const usageAr = str(o.ar) ?? "";
+    if (usageEn.length > MAX_USAGE || usageAr.length > MAX_USAGE) {
       fields.usage = `usage texts must be at most ${MAX_USAGE} characters`;
     } else {
-      value.usage = { en: usageEn, ru: usageRu };
+      value.usage = { en: usageEn, ar: usageAr };
     }
   }
 
@@ -184,9 +181,8 @@ export function applyProductInput(product: Product, input: ProductInput): Produc
   return {
     ...product,
     ...(input.en !== undefined ? { en: input.en } : {}),
-    ...(input.ru !== undefined ? { ru: input.ru } : {}),
+    ...(input.ar !== undefined ? { ar: input.ar } : {}),
     ...(input.priceEgp !== undefined ? { priceEgp: input.priceEgp } : {}),
-    ...(input.priceRub !== undefined ? { priceRub: input.priceRub } : {}),
     ...(input.photo !== undefined ? { photo: input.photo } : {}),
     ...(input.alt !== undefined ? { alt: input.alt } : {}),
     ...(input.usage !== undefined ? { usage: input.usage } : {}),
