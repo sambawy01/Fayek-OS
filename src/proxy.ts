@@ -20,6 +20,8 @@ const API_GUARDS: { prefix: string; cap: Capability }[] = [
   { prefix: "/api/admin/quotations", cap: "sales.quote" },
   { prefix: "/api/admin/purchase-orders", cap: "sales.po.create" },
   { prefix: "/api/admin/outreach", cap: "outreach.use" },
+  // Floor is view/approve; the run (POST) route enforces leads.run itself.
+  { prefix: "/api/admin/leads", cap: "leads.manage" },
 ];
 
 /**

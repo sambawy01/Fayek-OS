@@ -34,7 +34,9 @@ import ApprovalsSection from "./approvals-section";
 import ReportsSection from "./reports-section";
 import PurchaseOrdersSection from "./purchase-orders-section";
 import QuotationsSection from "./quotations-section";
+import ProspectingSection from "./prospecting-section";
 import OpenPOsSection from "./open-pos-section";
+import { listLeads, type Lead } from "@/lib/leads";
 import UsersSection, { type AdminUser } from "./users-section";
 
 export const dynamic = "force-dynamic";
@@ -189,6 +191,22 @@ export default async function AdminPage() {
         ),
       });
     }
+  }
+
+  // --- Prospecting (AI-discovered leads + approval) ---------------------------
+  if (TAB_ACCESS.prospecting.includes(role)) {
+    let leads: Lead[] = [];
+    try {
+      leads = await listLeads();
+    } catch (e) {
+      console.error("leads load:", e);
+    }
+    const pendingCount = leads.filter((l) => l.status === "pending").length;
+    tabs.push({
+      id: "prospecting",
+      label: pendingCount > 0 ? `Prospecting (${pendingCount})` : "Prospecting",
+      node: <ProspectingSection initialLeads={leads} canRun={can(role, "leads.run")} />,
+    });
   }
 
   // --- Receiving (factory batches) --------------------------------------------

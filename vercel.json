@@ -1,6 +1,7 @@
 {
   "crons": [
     { "path": "/api/cron/daily-brief", "schedule": "0 6 * * *" },
-    { "path": "/api/cron/backup", "schedule": "0 2 * * *" }
+    { "path": "/api/cron/backup", "schedule": "0 2 * * *" },
+    { "path": "/api/cron/prospect", "schedule": "0 5 * * *" }
   ]
 }

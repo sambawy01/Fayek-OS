@@ -1,23 +1,21 @@
 import { NextResponse } from "next/server";
 import { requireCapability } from "@/lib/auth/session-server";
-import { recommend } from "@/lib/ai-recommend";
-import { brandedEmailHtml, escapeHtml } from "@/lib/branded-email";
+import { getCatalog } from "@/lib/catalog";
+import { catalogSummaryForAI, draftOutreach } from "@/lib/ai-sales";
+import { webExtract, webSearch, webSearchConfigured, hostOf } from "@/lib/websearch";
+import { signOff, brandedOutreachHtml } from "@/lib/outreach-email";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-type Kind = "intro" | "followup" | "quote_cover" | "reminder";
-
-const CONTACTS = "info@ftc-eg.com · +20 2 2415 6092";
-
-/**
- * Plain-text sign-off. Includes the sender's signature (name / title, may be
- * multi-line) when provided, then the company name and contacts.
- */
-function signOff(signature: string): string {
-  const who = signature.trim();
-  return `\n\nWarm regards,\n${who ? `${who}\n` : ""}Fayek Abrasives\n${CONTACTS}`;
+/** Ensure a pasted domain becomes a fetchable URL. */
+function normalizeUrl(raw: string): string {
+  const s = raw.trim();
+  if (!s) return "";
+  return /^https?:\/\//i.test(s) ? s : `https://${s.replace(/^\/+/, "")}`;
 }
+
+type Kind = "intro" | "followup" | "quote_cover" | "reminder";
 
 // Body templates END before the sign-off; signOff() is appended so the sender's
 // signature is respected consistently across templates and AI rewrites.
@@ -44,35 +42,6 @@ const TEMPLATES: Record<Kind, { subject: string; body: (c: string) => string }> 
   },
 };
 
-/**
- * Wrap the message body (WITHOUT the sign-off) in the branded HTML email shell
- * (real logo band + brand palette). The sign-off — sender signature, company,
- * contacts — is rendered as the branded footer beneath the card.
- */
-function toBrandedHtml(subject: string, bodyNoSign: string, signature: string): string {
-  const contentHtml = bodyNoSign
-    .split(/\n{2,}/)
-    .map((p) => p.trim())
-    .filter(Boolean)
-    .map(
-      (p) =>
-        `<p style="margin:0 0 16px;color:#3A332C;font-size:15px;line-height:1.6;">${escapeHtml(p).replace(/\n/g, "<br />")}</p>`
-    )
-    .join("\n      ");
-
-  const sig = signature.trim();
-  const sigLine = sig
-    ? `<strong style="color:#3A332C;">${escapeHtml(sig).replace(/\n/g, "<br />")}</strong><br />`
-    : "";
-  const belowCardHtml =
-    `Warm regards,<br />${sigLine}` +
-    `<strong style="color:#3A332C;">Fayek Abrasives</strong><br />` +
-    `<a href="mailto:info@ftc-eg.com" style="color:#357F75;text-decoration:none;">info@ftc-eg.com</a> &middot; ` +
-    `+20 2 2415 6092 &middot; ` +
-    `<a href="https://www.fayekabrasives.com" style="color:#357F75;text-decoration:none;">fayekabrasives.com</a>`;
-
-  return brandedEmailHtml({ heading: subject, contentHtml, belowCardHtml });
-}
 
 /**
  * POST { kind, customerName, context?, signature?, personalize? }
@@ -98,29 +67,59 @@ export async function POST(request: Request) {
       ? body.customerName.trim()
       : "there";
   const signature = typeof body.signature === "string" ? body.signature.trim() : "";
+  const website = typeof body.website === "string" ? normalizeUrl(body.website) : "";
+  const brief = typeof body.context === "string" ? body.context.trim() : "";
   const tpl = TEMPLATES[kind];
+  let subject = tpl.subject;
   let bodyNoSign = tpl.body(customer);
   let ai = false;
+  let relevantProducts: string[] = [];
+  let researched = false;
 
   if (body.personalize) {
-    const context = typeof body.context === "string" ? body.context.trim() : "";
-    const system =
-      "You are a B2B sales copywriter for Fayek Abrasives (Cairo, Egypt). Rewrite " +
-      "the outreach message to be warm, professional and concise. Do NOT add a " +
-      "sign-off, signature, or contact details — those are appended separately. " +
-      "Return ONLY the message body.";
-    const rewritten = await recommend(
-      system,
-      `Customer: ${customer}\n${context ? `Context: ${context}\n` : ""}\nMessage to rewrite:\n${bodyNoSign}`
-    );
-    if (rewritten) {
-      // Strip any sign-off the model added despite instructions.
-      bodyNoSign = rewritten.replace(/\n+Warm regards,[\s\S]*$/i, "").trim();
-      ai = true;
+    // 1) Research the customer: extract their website + a light web search.
+    let research = "";
+    if (website) {
+      const pages = await webExtract([website]);
+      research += Object.values(pages).join("\n\n");
     }
+    const hits = await webSearch(
+      `${customer} ${website ? hostOf(website) : "Egypt industrial company"}`.trim(),
+      { maxResults: 4 }
+    );
+    if (hits.length) {
+      research += "\n\n" + hits.map((h) => `${h.title}: ${h.content}`).join("\n");
+    }
+    researched = website !== "" || hits.length > 0;
+
+    // 2) Draft a consultative, product-specific email grounded in the research.
+    const products = await getCatalog();
+    const draft = await draftOutreach({
+      companyName: customer === "there" ? "the customer" : customer,
+      research,
+      brief,
+      catalogSummary: catalogSummaryForAI(products),
+      fallbackSubject: tpl.subject,
+      fallbackBody: bodyNoSign,
+    });
+    subject = draft.subject;
+    bodyNoSign = draft.body;
+    ai = draft.ai;
+    relevantProducts = draft.relevantProducts;
   }
 
   const plainBody = bodyNoSign + signOff(signature);
-  const html = toBrandedHtml(tpl.subject, bodyNoSign, signature);
-  return NextResponse.json({ subject: tpl.subject, body: plainBody, html, ai });
+  const html = brandedOutreachHtml(subject, bodyNoSign, signature);
+  return NextResponse.json({
+    subject,
+    body: plainBody,
+    html,
+    ai,
+    relevantProducts,
+    researched,
+    // Tell the UI when a requested personalization couldn't actually use AI /
+    // web search, so it can prompt the owner to set the keys.
+    aiUnavailable: !!body.personalize && !ai,
+    webSearchAvailable: webSearchConfigured(),
+  });
 }

@@ -118,7 +118,10 @@ function Quotations({ products, priceBySlug, initial }: { products: ProductOpt[]
   );
 }
 
-interface OutreachResult { subject: string; body: string; html: string; ai: boolean }
+interface OutreachResult {
+  subject: string; body: string; html: string; ai: boolean;
+  relevantProducts?: string[]; researched?: boolean; aiUnavailable?: boolean; webSearchAvailable?: boolean;
+}
 
 function Outreach() {
   const KINDS: { id: string; label: string }[] = [
@@ -127,19 +130,20 @@ function Outreach() {
   ];
   const [kind, setKind] = useState("intro");
   const [customer, setCustomer] = useState("");
+  const [website, setWebsite] = useState("");
   const [context, setContext] = useState("");
   const [signature, setSignature] = useState("");
   const [out, setOut] = useState<OutreachResult | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<"" | "template" | "ai">("");
   const [copied, setCopied] = useState<"" | "email" | "text">("");
 
   async function gen(personalize: boolean) {
-    setBusy(true);
+    setBusy(personalize ? "ai" : "template");
     try {
       const res = await fetch("/api/admin/outreach", { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ kind, customerName: customer, context, signature, personalize }) });
+        body: JSON.stringify({ kind, customerName: customer, website, context, signature, personalize }) });
       if (res.ok) setOut((await res.json()) as OutreachResult);
-    } finally { setBusy(false); }
+    } finally { setBusy(""); }
   }
 
   async function copyFormatted() {
@@ -166,7 +170,7 @@ function Outreach() {
 
   return (
     <div>
-      <p className="mb-3 text-sm text-[#5E6B4F]">Branded outreach emails (real logo &amp; brand colours). Fill the customer, add your signature, and optionally personalise with AI.</p>
+      <p className="mb-3 text-sm text-[#5E6B4F]">Branded outreach emails (real logo &amp; brand colours). “Personalise with AI” researches the customer’s website and drafts a tailored message referencing specific products and improvements.</p>
       <div className="mb-3 flex flex-wrap gap-2">
         {KINDS.map((k) => (
           <button key={k.id} onClick={() => setKind(k.id)} className={kind === k.id ? primaryBtn : subtleBtn}>{k.label}</button>
@@ -178,22 +182,40 @@ function Outreach() {
           <input className={inputCls} placeholder="e.g. Eng. Hany Sadek" value={customer} onChange={(e) => setCustomer(e.target.value)} />
         </div>
         <div>
+          <label className="mb-1 block text-[11px] font-medium uppercase tracking-[0.06em] text-[#5E6B4F]">Customer website <span className="text-[#357F75]">(for AI research)</span></label>
+          <input className={inputCls} placeholder="e.g. company.com" value={website} onChange={(e) => setWebsite(e.target.value)} />
+        </div>
+        <div>
           <label className="mb-1 block text-[11px] font-medium uppercase tracking-[0.06em] text-[#5E6B4F]">Your signature</label>
           <input className={inputCls} placeholder="Your name · title (e.g. Omar — Sales)" value={signature} onChange={(e) => setSignature(e.target.value)} />
         </div>
-        <div className="sm:col-span-2">
-          <label className="mb-1 block text-[11px] font-medium uppercase tracking-[0.06em] text-[#5E6B4F]">Context for AI (optional)</label>
-          <input className={inputCls} placeholder="e.g. met at the Cairo filtration expo; needs 0.22µm cartridges" value={context} onChange={(e) => setContext(e.target.value)} />
+        <div>
+          <label className="mb-1 block text-[11px] font-medium uppercase tracking-[0.06em] text-[#5E6B4F]">Brief / goal <span className="text-[#5E6B4F]/70">(optional)</span></label>
+          <input className={inputCls} placeholder="e.g. they run a bottling line; pitch our filtration + lower cost" value={context} onChange={(e) => setContext(e.target.value)} />
         </div>
       </div>
-      <div className="flex gap-2">
-        <button className={subtleBtn} disabled={busy} onClick={() => void gen(false)}>Use template</button>
-        <button className={primaryBtn} disabled={busy} onClick={() => void gen(true)}>{busy ? "Working…" : "Personalise with AI"}</button>
+      <div className="flex flex-wrap gap-2">
+        <button className={subtleBtn} disabled={!!busy} onClick={() => void gen(false)}>Use template</button>
+        <button className={primaryBtn} disabled={!!busy} onClick={() => void gen(true)}>{busy === "ai" ? "Researching & drafting…" : "Personalise with AI"}</button>
       </div>
       {out && (
         <div className="mt-4 rounded-2xl border border-[#38492E]/10 bg-white p-4">
-          <p className="text-sm font-medium text-[#38492E]">Subject: {out.subject}{out.ai && <span className="ml-2 rounded-full bg-[#357F75]/15 px-2 py-0.5 text-xs text-[#2A6A61]">AI</span>}</p>
-          <p className="mt-1 mb-2 text-[11px] uppercase tracking-[0.06em] text-[#5E6B4F]">Branded email preview</p>
+          {out.aiUnavailable && (
+            <div className="mb-3 rounded-xl border border-[#C08A2D]/40 bg-[#FBF4E6] px-3 py-2 text-xs text-[#8A6418]">
+              AI is not configured yet — showing the standard template. Set <code>OLLAMA_API_KEY</code>{!out.webSearchAvailable && <> and <code>TAVILY_API_KEY</code></>} to enable research-driven personalisation.
+            </div>
+          )}
+          <p className="text-sm font-medium text-[#38492E]">Subject: {out.subject}
+            {out.ai && <span className="ml-2 rounded-full bg-[#357F75]/15 px-2 py-0.5 text-xs text-[#2A6A61]">AI{out.researched ? " · researched" : ""}</span>}
+          </p>
+          {out.relevantProducts && out.relevantProducts.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {out.relevantProducts.map((p, i) => (
+                <span key={i} className="rounded-full bg-[#38492E]/8 px-2 py-0.5 text-xs text-[#38492E]">{p}</span>
+              ))}
+            </div>
+          )}
+          <p className="mt-3 mb-2 text-[11px] uppercase tracking-[0.06em] text-[#5E6B4F]">Branded email preview</p>
           <div className="overflow-hidden rounded-xl border border-[#38492E]/10">
             <iframe title="Branded email preview" srcDoc={out.html} className="h-[460px] w-full bg-white" />
           </div>

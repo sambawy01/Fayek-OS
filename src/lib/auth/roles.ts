@@ -51,6 +51,9 @@ export const PERMISSIONS = {
   "sales.po.create": ["owner", "admin", "sales"],
   "sales.po.process": ["owner", "admin"], // invoice / fulfil open POs
   "outreach.use": ["owner", "admin", "sales"],
+  // Prospecting: AI-discovered leads + approval
+  "leads.manage": ["owner", "admin", "sales"], // view / approve / reject
+  "leads.run": ["owner", "admin"], // trigger discovery (web-search + AI cost)
   // Customers
   "customers.directory": ["owner", "admin", "sales"], // search/select + create
   "customers.account": ["owner", "admin"], // finance history, credit, notes
@@ -77,6 +80,7 @@ export const TAB_ACCESS: Record<string, Role[]> = {
   orders: ["owner", "admin", "sales"], // order book — PO lifecycle
   purchaseOrders: ["owner", "admin", "sales"], // industrial PO generator
   quotations: ["owner", "admin", "sales"], // quotations + outreach
+  prospecting: ["owner", "admin", "sales"], // AI-discovered leads + approval
   inventory: ["owner", "admin", "inventory", "sales"], // sales sees read-only
   finance: ["owner", "admin"],
   // Customers (companies): sales gets the directory view; owner/admin get the
