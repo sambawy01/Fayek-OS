@@ -1,26 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  isAuthorizedAdminRequest,
-  unauthorizedResponse,
-} from "@/lib/admin/auth";
+import { SESSION_COOKIE, verifySession } from "@/lib/auth/session";
 
 /**
- * Auth gate for the owner admin surface (page + APIs).
+ * Session gate for the admin surface (Edge). A valid signed session cookie is
+ * required for /admin (pages) and /api/admin/* (APIs):
+ * - pages → redirect to /login?next=… so the user can sign in and come back,
+ * - APIs  → 401 JSON.
  *
- * Accepts HTTP Basic (ADMIN_USER/ADMIN_PASS) or the legacy ADMIN_TOKEN key
- * (?key= query param / x-admin-key header — old booking emails link to
- * /admin?key=<token> and must keep working). Anything else gets a 401 with
- * a WWW-Authenticate challenge so the browser shows its native login prompt.
+ * This is the authoritative authentication layer; because it runs before every
+ * matched route, the route handlers can trust that a request which reaches them
+ * is already authenticated (they still do per-capability checks for RBAC).
  *
- * The routes themselves re-check credentials (defense in depth) — this layer
- * exists so the *page* can answer 401+challenge, which a server component
- * cannot do on its own.
+ * Telegram / cron / inbound-email routes are NOT matched here — they carry
+ * their own shared-secret auth.
  */
-export function proxy(request: NextRequest) {
-  if (isAuthorizedAdminRequest(request)) {
-    return NextResponse.next();
+export async function proxy(request: NextRequest) {
+  const user = await verifySession(request.cookies.get(SESSION_COOKIE)?.value);
+  if (user) return NextResponse.next();
+
+  const { pathname, search } = request.nextUrl;
+  if (pathname.startsWith("/api/")) {
+    return NextResponse.json({ error: "Not signed in" }, { status: 401 });
   }
-  return unauthorizedResponse();
+  const loginUrl = new URL("/login", request.url);
+  loginUrl.searchParams.set("next", pathname + search);
+  return NextResponse.redirect(loginUrl);
 }
 
 export const config = {

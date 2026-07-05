@@ -1,5 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
+import { SESSION_COOKIE } from "@/lib/auth/session";
 
 /**
  * Admin authentication — two accepted credentials, checked in order:
@@ -66,10 +67,24 @@ export function isValidBasicAuth(header: string | null | undefined): boolean {
 }
 
 /**
- * Combined request-level check used by the proxy and every /api/admin/*
- * route: Basic auth OR legacy key (header or ?key= query param).
+ * True when the request carries a session cookie. The Edge proxy has already
+ * VERIFIED that cookie's signature/expiry before any /api/admin route runs, so
+ * per-route handlers only need to recognize its presence (defense in depth) —
+ * a full re-verify happens where the route needs the user (getSession).
+ */
+function hasSessionCookie(request: Request): boolean {
+  const cookie = request.headers.get("cookie");
+  if (!cookie) return false;
+  return new RegExp(`(?:^|;\\s*)${SESSION_COOKIE}=[^;\\s]`).test(cookie);
+}
+
+/**
+ * Combined request-level check used by every /api/admin/* route: a verified
+ * session (primary) OR the legacy admin key (header / ?key= — kept for old
+ * emailed links). HTTP Basic is also still accepted as a transitional path.
  */
 export function isAuthorizedAdminRequest(request: Request): boolean {
+  if (hasSessionCookie(request)) return true;
   if (isValidBasicAuth(request.headers.get("authorization"))) return true;
   if (isValidAdminKey(request.headers.get("x-admin-key"))) return true;
   try {

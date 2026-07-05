@@ -1,6 +1,6 @@
-import { notFound } from "next/navigation";
-import { headers } from "next/headers";
-import { isValidAdminKey, isValidBasicAuth } from "@/lib/admin/auth";
+import { redirect } from "next/navigation";
+import { getSession } from "@/lib/auth/session-server";
+import { can } from "@/lib/auth/roles";
 import { getCatalog, type Product } from "@/lib/catalog";
 import PosClient from "./pos-client";
 
@@ -12,19 +12,13 @@ export const metadata = {
 };
 
 /**
- * /admin/pos — a simple in-store point-of-sale for the Egypt shop.
- * Same auth as /admin (Basic or legacy ?key=, re-checked here + in the proxy).
+ * /admin/pos — in-store point-of-sale. Requires a session (enforced by the
+ * proxy) and the `pos.sell` capability (owner / admin / sales).
  */
-export default async function PosPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
-}) {
-  const { key } = await searchParams;
-  const legacyKey = typeof key === "string" && isValidAdminKey(key) ? key : "";
-  const requestHeaders = await headers();
-  const basicOk = isValidBasicAuth(requestHeaders.get("authorization"));
-  if (!basicOk && !legacyKey) notFound();
+export default async function PosPage() {
+  const session = await getSession();
+  if (!session) redirect("/login?next=/admin/pos");
+  if (!can(session.role, "pos.sell")) redirect("/admin");
 
   let products: Product[] = [];
   try {
@@ -33,5 +27,5 @@ export default async function PosPage({
     products = [];
   }
 
-  return <PosClient products={products} adminKey={legacyKey} />;
+  return <PosClient products={products} adminKey="" />;
 }

@@ -1,6 +1,6 @@
-import { notFound } from "next/navigation";
-import { headers } from "next/headers";
-import { isValidAdminKey, isValidBasicAuth } from "@/lib/admin/auth";
+import { redirect } from "next/navigation";
+import { getSession } from "@/lib/auth/session-server";
+import { ROLE_LABELS } from "@/lib/auth/roles";
 import { listOrders, type StoredOrder } from "@/lib/orders";
 import { getCatalog, type Product } from "@/lib/catalog";
 import { buildPnL, resolvePeriod, type PnL } from "@/lib/finance-report";
@@ -11,6 +11,7 @@ import {
   type UnlinkedOverlay,
 } from "@/lib/crm";
 import AdminTabs from "./admin-tabs";
+import SignOut from "./sign-out";
 import OrdersSection from "./orders-section";
 import ProductsSection from "./products-section";
 import FinanceSection from "./finance-section";
@@ -28,20 +29,15 @@ export default async function AdminPage({
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  // Auth happens in the proxy (which answers 401 + WWW-Authenticate so the
-  // browser shows its native Basic login prompt). This re-check is defense
-  // in depth: Basic credentials OR the legacy ?key= link from old emails.
-  const { key } = await searchParams;
-  const legacyKey =
-    typeof key === "string" && isValidAdminKey(key) ? key : "";
-  const requestHeaders = await headers();
-  const basicOk = isValidBasicAuth(requestHeaders.get("authorization"));
-  if (!basicOk && !legacyKey) notFound();
+  // The proxy already requires a valid session for /admin; this re-check gets
+  // the signed-in user (and guards against a matcher misconfig).
+  void searchParams;
+  const session = await getSession();
+  if (!session) redirect("/login?next=/admin");
 
-  // When authenticated via Basic, the browser re-attaches the Authorization
-  // header to every same-origin fetch, so client components can send an
-  // empty x-admin-key — the API routes accept either credential.
-  const clientKey = legacyKey;
+  // Client components authenticate via the session cookie (auto-sent on every
+  // same-origin fetch), so no key needs to be threaded down.
+  const clientKey = "";
 
   let orders: StoredOrder[] = [];
   let ordersError: string | null = null;
@@ -91,7 +87,18 @@ export default async function AdminPage({
   return (
     <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-10 sm:px-6">
       <header className="mb-8">
-        <div className="mb-3 font-serif text-2xl tracking-tight text-[#38492E]">Fayek Abrasives</div>
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div className="font-serif text-2xl tracking-tight text-[#38492E]">Fayek Abrasives</div>
+          <div className="flex items-center gap-3 text-sm text-[#5E6B4F]">
+            <span>
+              {session.name || session.username}
+              <span className="ml-1 rounded-full bg-[#38492E]/10 px-2 py-0.5 text-xs text-[#38492E]">
+                {ROLE_LABELS[session.role]}
+              </span>
+            </span>
+            <SignOut label={`Signed in as ${session.username}`} />
+          </div>
+        </div>
         <h1 className="mt-2 font-serif text-4xl text-[#38492E]">Store admin</h1>
         <p className="mt-2 text-sm text-[#5E6B4F]">
           Times shown in Cairo time (Africa/Cairo).
