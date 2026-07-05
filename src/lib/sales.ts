@@ -1,6 +1,7 @@
 import { db } from "./db";
 import { decrementQuantities } from "./catalog";
 import { createReceivable } from "./receivables";
+import { dateOnly, isoString } from "./db-dates";
 
 export interface SalesLine {
   slug: string;
@@ -87,8 +88,8 @@ function toQuotation(r: Record<string, unknown>): Quotation {
   return {
     id: Number(r.id), companyId: r.company_id === null ? null : Number(r.company_id),
     companyName: String(r.company_name), status: r.status as QuotationStatus,
-    validUntil: (r.valid_until as string | null) ?? null, notes: String(r.notes),
-    totalEgp: Number(r.total_egp), createdAt: String(r.created_at),
+    validUntil: dateOnly(r.valid_until), notes: String(r.notes),
+    totalEgp: Number(r.total_egp), createdAt: isoString(r.created_at),
   };
 }
 
@@ -134,7 +135,7 @@ function toPO(r: Record<string, unknown>): PurchaseOrder {
     companyName: String(r.company_name), quotationId: r.quotation_id === null ? null : Number(r.quotation_id),
     status: r.status as POStatus, totalEgp: Number(r.total_egp), notes: String(r.notes),
     fulfilled: Boolean(r.fulfilled), receivableId: r.receivable_id === null ? null : Number(r.receivable_id),
-    createdAt: String(r.created_at),
+    createdAt: isoString(r.created_at),
   };
 }
 

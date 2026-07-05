@@ -1,4 +1,5 @@
 import { db } from "./db";
+import { isoString } from "./db-dates";
 
 export type LeadStatus = "pending" | "approved" | "rejected" | "sent";
 
@@ -36,7 +37,7 @@ function toLead(r: LeadRow): Lead {
     contactPhone: r.contact_phone, rationale: r.rationale,
     relevantProducts: r.relevant_products ? r.relevant_products.split("\n").filter(Boolean) : [],
     draftSubject: r.draft_subject, draftBody: r.draft_body, draftHtml: r.draft_html,
-    status: r.status as LeadStatus, source: r.source, domain: r.domain, createdAt: r.created_at,
+    status: r.status as LeadStatus, source: r.source, domain: r.domain, createdAt: isoString(r.created_at),
   };
 }
 

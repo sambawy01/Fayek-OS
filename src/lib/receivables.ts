@@ -1,4 +1,5 @@
 import { db } from "./db";
+import { dateOnly, isoString } from "./db-dates";
 
 export type ReceivableStatus = "pending" | "partial" | "paid" | "void";
 
@@ -46,8 +47,8 @@ function toReceivable(r: RRow, paid: number): Receivable {
     id: Number(r.id), companyId: r.company_id === null ? null : Number(r.company_id),
     companyName: r.company_name, orderRef: r.order_ref, totalEgp: total,
     paidEgp: paid, balanceEgp: Math.max(0, total - paid),
-    status: r.status as ReceivableStatus, dueDate: r.due_date, notes: r.notes,
-    createdAt: r.created_at,
+    status: r.status as ReceivableStatus, dueDate: dateOnly(r.due_date), notes: r.notes,
+    createdAt: isoString(r.created_at),
   };
 }
 
@@ -173,10 +174,10 @@ export async function getReceivable(id: number): Promise<ReceivableDetail | null
   return {
     ...toReceivable(rows[0], paid),
     payments: payRows.map((p) => ({
-      id: Number(p.id), amountEgp: Number(p.amount_egp), method: p.method, kind: p.kind, note: p.note, paidAt: p.paid_at,
+      id: Number(p.id), amountEgp: Number(p.amount_egp), method: p.method, kind: p.kind, note: p.note, paidAt: isoString(p.paid_at),
     })),
     installments: instRows.map((i) => ({
-      id: Number(i.id), seq: Number(i.seq), dueDate: i.due_date, amountEgp: Number(i.amount_egp),
+      id: Number(i.id), seq: Number(i.seq), dueDate: dateOnly(i.due_date), amountEgp: Number(i.amount_egp),
     })),
   };
 }
