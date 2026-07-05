@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { Batch, BatchDetail } from "@/lib/batches";
+import ProductCombobox from "./product-combobox";
 
 export interface ProductOption { slug: string; name: string }
 
@@ -49,7 +50,7 @@ export default function ReceivingSection({
   // --- create dispatch form ---
   const [head, setHead] = useState({ reference: "", supplier: "", notes: "" });
   const [lines, setLines] = useState<{ slug: string; expectedQty: string }[]>([
-    { slug: products[0]?.slug ?? "", expectedQty: "" },
+    { slug: "", expectedQty: "" },
   ]);
 
   async function createBatch() {
@@ -69,7 +70,7 @@ export default function ReceivingSection({
       setBatches((prev) => [batch, ...prev]);
       setAdding(false);
       setHead({ reference: "", supplier: "", notes: "" });
-      setLines([{ slug: products[0]?.slug ?? "", expectedQty: "" }]);
+      setLines([{ slug: "", expectedQty: "" }]);
     } catch { setError("Network error — please try again."); }
     finally { setBusy(false); }
   }
@@ -105,10 +106,10 @@ export default function ReceivingSection({
           <div className="space-y-2">
             {lines.map((l, i) => (
               <div key={i} className="flex items-center gap-2">
-                <select className={`${inputCls} flex-1`} value={l.slug}
-                  onChange={(e) => setLines(lines.map((x, j) => j === i ? { ...x, slug: e.target.value } : x))}>
-                  {products.map((p) => <option key={p.slug} value={p.slug}>{p.name}</option>)}
-                </select>
+                <div className="flex-1">
+                  <ProductCombobox products={products} value={l.slug}
+                    onChange={(slug) => setLines(lines.map((x, j) => j === i ? { ...x, slug } : x))} />
+                </div>
                 <input className={`${inputCls} w-28`} inputMode="numeric" placeholder="Qty" value={l.expectedQty}
                   onChange={(e) => setLines(lines.map((x, j) => j === i ? { ...x, expectedQty: e.target.value } : x))} />
                 <button className={subtleBtn} onClick={() => setLines(lines.filter((_, j) => j !== i))}>–</button>
@@ -116,7 +117,7 @@ export default function ReceivingSection({
             ))}
           </div>
           <button className={`${subtleBtn} mt-2`}
-            onClick={() => setLines([...lines, { slug: products[0]?.slug ?? "", expectedQty: "" }])}>
+            onClick={() => setLines([...lines, { slug: "", expectedQty: "" }])}>
             + Add line
           </button>
           <div className="mt-4 flex gap-2">

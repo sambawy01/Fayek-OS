@@ -52,6 +52,7 @@ export default function PosClient({
   const [installments, setInstallments] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [prodQ, setProdQ] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<{ orderNumber: string; total: number } | null>(null);
@@ -333,8 +334,20 @@ export default function PosClient({
               No website products — use “+ Custom item” to sell a store item.
             </p>
           ) : (
+            <>
+              <input
+                value={prodQ}
+                onChange={(e) => setProdQ(e.target.value)}
+                placeholder="Search products by name or code…"
+                className="mb-3 w-full rounded-xl border border-[#3A332C]/15 bg-white px-3 py-2 text-sm text-[#38492E] outline-none focus:border-[#357F75]"
+              />
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              {products.map((p) => {
+              {products
+                .filter((p) => {
+                  const q = prodQ.trim().toLowerCase();
+                  return !q || p.en.name.toLowerCase().includes(q) || p.slug.toLowerCase().includes(q);
+                })
+                .map((p) => {
                 const out = isSoldOut(p);
                 const inCart =
                   lines.find((l) => l.kind === "catalog" && l.slug === p.slug)?.qty ?? 0;
@@ -387,6 +400,7 @@ export default function PosClient({
                 );
               })}
             </div>
+            </>
           )}
         </section>
 
