@@ -3,7 +3,9 @@ import { requireCapability } from "@/lib/auth/session-server";
 import {
   getUserById,
   updateUser,
+  deleteUser,
   countActiveOwners,
+  countOwners,
 } from "@/lib/auth/users";
 import { isRole, ROLE_LABELS } from "@/lib/auth/roles";
 
@@ -43,11 +45,22 @@ export async function PATCH(
   }
 
   const patch: {
+    username?: string;
     name?: string;
     role?: (typeof target)["role"];
     active?: boolean;
     password?: string;
   } = {};
+  if (typeof body.username === "string") {
+    const u = body.username.trim();
+    if (!/^[a-zA-Z0-9._-]{3,40}$/.test(u)) {
+      return NextResponse.json(
+        { error: "Username must be 3–40 characters (letters, digits, . _ -)." },
+        { status: 400 }
+      );
+    }
+    patch.username = u;
+  }
   if (typeof body.name === "string") patch.name = body.name;
   if (body.role !== undefined) {
     if (!isRole(body.role)) {
@@ -100,7 +113,16 @@ export async function PATCH(
     );
   }
 
-  const updated = await updateUser(id, patch);
+  let updated;
+  try {
+    updated = await updateUser(id, patch);
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : "";
+    if (/duplicate key|unique/i.test(msg)) {
+      return NextResponse.json({ error: "That username is already taken." }, { status: 409 });
+    }
+    throw error;
+  }
   if (!updated) {
     return NextResponse.json({ error: "User not found." }, { status: 404 });
   }
@@ -115,4 +137,38 @@ export async function PATCH(
       createdAt: updated.createdAt,
     },
   });
+}
+
+/**
+ * DELETE /api/admin/users/<id> — permanently remove a user. Their historical
+ * references (created_by, etc.) are set null, so records are preserved.
+ * Guards: only an Owner may delete an Owner; you can't delete yourself; you
+ * can't delete the last Owner.
+ */
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const guard = await requireCapability("users.manage");
+  if ("error" in guard) return guard.error;
+  const me = guard.user;
+  const id = Number((await params).id);
+  if (!Number.isInteger(id)) {
+    return NextResponse.json({ error: "Bad id." }, { status: 400 });
+  }
+  if (id === me.uid) {
+    return NextResponse.json({ error: "You can't delete your own account." }, { status: 400 });
+  }
+  const target = await getUserById(id);
+  if (!target) {
+    return NextResponse.json({ error: "User not found." }, { status: 404 });
+  }
+  if (target.role === "owner" && me.role !== "owner") {
+    return NextResponse.json({ error: "Only an Owner can delete an Owner." }, { status: 403 });
+  }
+  if (target.role === "owner" && (await countOwners()) <= 1) {
+    return NextResponse.json({ error: "There must be at least one Owner." }, { status: 400 });
+  }
+  await deleteUser(id);
+  return NextResponse.json({ ok: true });
 }

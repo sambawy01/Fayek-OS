@@ -62,24 +62,46 @@ export async function countActiveOwners(): Promise<number> {
 
 export async function updateUser(
   id: number,
-  patch: { name?: string; role?: Role; active?: boolean; password?: string }
+  patch: { username?: string; name?: string; role?: Role; active?: boolean; password?: string }
 ): Promise<DbUser | null> {
   // Merge provided fields over the current row (partial update).
   const cur = await getUserById(id);
   if (!cur) return null;
+  const username = patch.username !== undefined ? patch.username.trim() : cur.username;
   const name = patch.name !== undefined ? patch.name.trim() : cur.name;
   const role = patch.role !== undefined ? patch.role : cur.role;
   const active = patch.active !== undefined ? patch.active : cur.active;
   const passwordHash =
     patch.password !== undefined ? hashPassword(patch.password) : cur.passwordHash;
+  // Throws on a duplicate username (unique index) — the route maps it to 409.
   const rows = (await db()`
     UPDATE users
-       SET name = ${name}, role = ${role}, active = ${active},
+       SET username = ${username}, name = ${name}, role = ${role}, active = ${active},
            password_hash = ${passwordHash}, updated_at = now()
      WHERE id = ${id}
     RETURNING *
   `) as UserRow[];
   return rows[0] ? toUser(rows[0]) : null;
+}
+
+export async function deleteUser(id: number): Promise<void> {
+  // FK references (created_by, etc.) are ON DELETE SET NULL, so history stays.
+  await db()`DELETE FROM users WHERE id = ${id}`;
+}
+
+/** Total owners regardless of active flag — used to protect the last one. */
+export async function countOwners(): Promise<number> {
+  const rows = (await db()`SELECT count(*)::int AS n FROM users WHERE role = 'owner'`) as { n: number }[];
+  return rows[0]?.n ?? 0;
+}
+
+/** Max employee (non-owner) accounts. Owner seats are separate. */
+export const MAX_EMPLOYEES = 4;
+
+/** Count of employee (non-owner) accounts, active or not. */
+export async function countEmployees(): Promise<number> {
+  const rows = (await db()`SELECT count(*)::int AS n FROM users WHERE role <> 'owner'`) as { n: number }[];
+  return rows[0]?.n ?? 0;
 }
 
 export async function listUsers(): Promise<DbUser[]> {

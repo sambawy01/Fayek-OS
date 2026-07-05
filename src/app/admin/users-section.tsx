@@ -43,6 +43,12 @@ export default function UsersSection({
     currentRole === "owner" ? [...ROLES] : ROLES.filter((r) => r !== "owner");
 
   const [nu, setNu] = useState({ username: "", name: "", role: "sales" as Role, password: "" });
+  const [editId, setEditId] = useState<number | null>(null);
+  const [editForm, setEditForm] = useState({ username: "", name: "" });
+
+  const MAX_EMPLOYEES = 4;
+  const employeeCount = users.filter((u) => u.role !== "owner").length;
+  const atLimit = employeeCount >= MAX_EMPLOYEES;
 
   async function createUser() {
     setBusy(true);
@@ -90,6 +96,46 @@ export default function UsersSection({
     void patch(u.id, { password: pw });
   }
 
+  function startEdit(u: AdminUser) {
+    setError(null);
+    setEditId(u.id);
+    setEditForm({ username: u.username, name: u.name });
+  }
+  async function saveEdit() {
+    if (editId == null) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/users/${editId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: editForm.username.trim(), name: editForm.name.trim() }),
+      });
+      if (!res.ok) return setError(await readError(res));
+      const { user } = (await res.json()) as { user: AdminUser };
+      setUsers((prev) => prev.map((u) => (u.id === user.id ? user : u)));
+      setEditId(null);
+    } catch {
+      setError("Network error — please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function del(u: AdminUser) {
+    if (!window.confirm(`Delete "${u.username}" permanently? Their history is kept but the login is removed.`)) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/users/${u.id}`, { method: "DELETE" });
+      if (!res.ok) return setError(await readError(res));
+      setUsers((prev) => prev.filter((x) => x.id !== u.id));
+    } catch {
+      setError("Network error — please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <section>
       <div className="mb-4">
@@ -108,29 +154,42 @@ export default function UsersSection({
 
       {/* create */}
       <div className="mb-6 rounded-2xl border border-[#38492E]/10 bg-[#FBF4E6] px-5 py-4">
-        <p className="mb-3 text-xs font-medium uppercase tracking-[0.08em] text-[#5E6B4F]">
-          Add a user
-        </p>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <input className={inputCls} placeholder="username" value={nu.username}
-            onChange={(e) => setNu({ ...nu, username: e.target.value })} />
-          <input className={inputCls} placeholder="full name" value={nu.name}
-            onChange={(e) => setNu({ ...nu, name: e.target.value })} />
-          <select className={inputCls} value={nu.role}
-            onChange={(e) => setNu({ ...nu, role: e.target.value as Role })}>
-            {assignableRoles.map((r) => (
-              <option key={r} value={r}>{ROLE_LABELS[r]}</option>
-            ))}
-          </select>
-          <input className={inputCls} type="password" placeholder="password (min 8)"
-            value={nu.password} onChange={(e) => setNu({ ...nu, password: e.target.value })} />
+        <div className="mb-3 flex items-center justify-between">
+          <p className="text-xs font-medium uppercase tracking-[0.08em] text-[#5E6B4F]">
+            Add a user
+          </p>
+          <span className={`text-xs ${atLimit ? "text-[#B5483A]" : "text-[#5E6B4F]"}`}>
+            {employeeCount} / {MAX_EMPLOYEES} employees
+          </span>
         </div>
-        <div className="mt-3">
-          <button className={primaryBtn} disabled={busy || !nu.username || !nu.password}
-            onClick={() => void createUser()}>
-            Add user
-          </button>
-        </div>
+        {atLimit ? (
+          <p className="text-sm text-[#5E6B4F]">
+            Employee limit reached ({MAX_EMPLOYEES}). Delete or reassign a user to add another.
+          </p>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <input className={inputCls} placeholder="username" value={nu.username}
+                onChange={(e) => setNu({ ...nu, username: e.target.value })} />
+              <input className={inputCls} placeholder="full name" value={nu.name}
+                onChange={(e) => setNu({ ...nu, name: e.target.value })} />
+              <select className={inputCls} value={nu.role}
+                onChange={(e) => setNu({ ...nu, role: e.target.value as Role })}>
+                {assignableRoles.map((r) => (
+                  <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+                ))}
+              </select>
+              <input className={inputCls} type="password" placeholder="password (min 8)"
+                value={nu.password} onChange={(e) => setNu({ ...nu, password: e.target.value })} />
+            </div>
+            <div className="mt-3">
+              <button className={primaryBtn} disabled={busy || !nu.username || !nu.password}
+                onClick={() => void createUser()}>
+                Add user
+              </button>
+            </div>
+          </>
+        )}
       </div>
 
       {/* list */}
@@ -140,43 +199,72 @@ export default function UsersSection({
           const canEdit =
             (u.role !== "owner" || currentRole === "owner") && !isSelf;
           return (
-            <div key={u.id}
-              className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#38492E]/10 bg-white px-4 py-3">
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-[#38492E]">
-                  {u.name || u.username}
-                  <span className="ml-2 rounded-full bg-[#38492E]/10 px-2 py-0.5 text-xs text-[#38492E]">
-                    {u.roleLabel}
-                  </span>
-                  {!u.active && (
-                    <span className="ml-2 rounded-full bg-[#B5483A]/12 px-2 py-0.5 text-xs text-[#B5483A]">
-                      deactivated
+            <div key={u.id} className="rounded-2xl border border-[#38492E]/10 bg-white px-4 py-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-[#38492E]">
+                    {u.name || u.username}
+                    <span className="ml-2 rounded-full bg-[#38492E]/10 px-2 py-0.5 text-xs text-[#38492E]">
+                      {u.roleLabel}
                     </span>
+                    {!u.active && (
+                      <span className="ml-2 rounded-full bg-[#B5483A]/12 px-2 py-0.5 text-xs text-[#B5483A]">
+                        deactivated
+                      </span>
+                    )}
+                    {isSelf && <span className="ml-2 text-xs text-[#5E6B4F]">(you)</span>}
+                  </p>
+                  <p className="text-xs text-[#5E6B4F]">@{u.username}</p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {canEdit && (
+                    <select
+                      className="rounded-xl border border-[#38492E]/15 bg-white px-2 py-1 text-sm text-[#38492E]"
+                      value={u.role} disabled={busy}
+                      onChange={(e) => void patch(u.id, { role: e.target.value })}>
+                      {assignableRoles.map((r) => (
+                        <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+                      ))}
+                    </select>
                   )}
-                  {isSelf && <span className="ml-2 text-xs text-[#5E6B4F]">(you)</span>}
-                </p>
-                <p className="text-xs text-[#5E6B4F]">@{u.username}</p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                {canEdit && (
-                  <select
-                    className="rounded-xl border border-[#38492E]/15 bg-white px-2 py-1 text-sm text-[#38492E]"
-                    value={u.role} disabled={busy}
-                    onChange={(e) => void patch(u.id, { role: e.target.value })}>
-                    {assignableRoles.map((r) => (
-                      <option key={r} value={r}>{ROLE_LABELS[r]}</option>
-                    ))}
-                  </select>
-                )}
-                <button className={subtleBtn} disabled={busy}
-                  onClick={() => resetPassword(u)}>Reset password</button>
-                {canEdit && (
+                  {canEdit && (
+                    <button className={subtleBtn} disabled={busy} onClick={() => startEdit(u)}>Edit</button>
+                  )}
                   <button className={subtleBtn} disabled={busy}
-                    onClick={() => void patch(u.id, { active: !u.active })}>
-                    {u.active ? "Deactivate" : "Activate"}
-                  </button>
-                )}
+                    onClick={() => resetPassword(u)}>Reset password</button>
+                  {canEdit && (
+                    <button className={subtleBtn} disabled={busy}
+                      onClick={() => void patch(u.id, { active: !u.active })}>
+                      {u.active ? "Deactivate" : "Activate"}
+                    </button>
+                  )}
+                  {canEdit && (
+                    <button
+                      className="rounded-full border border-[#B5483A]/40 bg-[#FBF4E6] px-3 py-1.5 text-sm text-[#B5483A] transition hover:bg-[#F3E4E1] disabled:opacity-50"
+                      disabled={busy} onClick={() => void del(u)}>Delete</button>
+                  )}
+                </div>
               </div>
+              {editId === u.id && (
+                <div className="mt-3 border-t border-[#38492E]/10 pt-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div>
+                      <label className="mb-1 block text-xs uppercase tracking-[0.08em] text-[#5E6B4F]">Username</label>
+                      <input className={inputCls} value={editForm.username}
+                        onChange={(e) => setEditForm({ ...editForm, username: e.target.value })} />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs uppercase tracking-[0.08em] text-[#5E6B4F]">Full name</label>
+                      <input className={inputCls} value={editForm.name}
+                        onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} />
+                    </div>
+                  </div>
+                  <div className="mt-3 flex gap-2">
+                    <button className={primaryBtn} disabled={busy} onClick={() => void saveEdit()}>Save</button>
+                    <button className={subtleBtn} disabled={busy} onClick={() => setEditId(null)}>Cancel</button>
+                  </div>
+                </div>
+              )}
             </div>
           );
         })}

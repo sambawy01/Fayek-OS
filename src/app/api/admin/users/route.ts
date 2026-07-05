@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { requireCapability } from "@/lib/auth/session-server";
-import { createUser, listUsers } from "@/lib/auth/users";
+import {
+  createUser,
+  listUsers,
+  countEmployees,
+  MAX_EMPLOYEES,
+} from "@/lib/auth/users";
 import { isRole, ROLE_LABELS, type Role } from "@/lib/auth/roles";
 
 export const runtime = "nodejs";
@@ -67,6 +72,15 @@ export async function POST(request: Request) {
   if (role === "owner" && guard.user.role !== "owner") {
     return NextResponse.json(
       { error: "Only an Owner can create another Owner." },
+      { status: 403 }
+    );
+  }
+  // Employee (non-owner) seat limit.
+  if (role !== "owner" && (await countEmployees()) >= MAX_EMPLOYEES) {
+    return NextResponse.json(
+      {
+        error: `Employee limit reached (${MAX_EMPLOYEES}). Delete or reassign a user to add another.`,
+      },
       { status: 403 }
     );
   }
