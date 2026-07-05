@@ -2,6 +2,8 @@
 
 import { useState, type ChangeEvent } from "react";
 import type { Product } from "@/lib/catalog";
+import type { CompanyDirectory } from "@/lib/companies";
+import PosCustomer from "./pos-customer";
 
 const SITE_BASE = "https://www.fayekabrasives.com/";
 function photoSrc(photo: string): string {
@@ -44,6 +46,7 @@ export default function PosClient({
   const [lines, setLines] = useState<Line[]>([]);
   const [seq, setSeq] = useState(0);
   const [payment, setPayment] = useState<PaymentId>("cash");
+  const [company, setCompany] = useState<CompanyDirectory | null>(null);
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [busy, setBusy] = useState(false);
@@ -178,6 +181,7 @@ export default function PosClient({
           ),
           customerEmail: email,
           customerPhone: phone,
+          companyId: company?.id,
           payment,
         }),
       });
@@ -457,6 +461,9 @@ export default function PosClient({
             <p className="mb-1 mt-4 text-xs font-medium uppercase tracking-[0.08em] text-[#5E6B4F]">
               Customer (optional)
             </p>
+            <div className="mb-2">
+              <PosCustomer selected={company} onSelect={setCompany} />
+            </div>
             <input
               type="email"
               value={email}

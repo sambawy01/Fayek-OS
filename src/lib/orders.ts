@@ -83,6 +83,8 @@ export interface StoredOrder {
   email: string;
   address: string;
   note: string;
+  /** Linked company/customer account (from the Customers directory), if any. */
+  company?: { id: number; name: string; taxId: string };
   lang: "en" | "ar";
   /** Sales channel. Absent on legacy orders = treat as "online" (website COD).
    *  "in_store" = a physical sale recorded by the owner at the Egypt shop. */

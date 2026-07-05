@@ -9,6 +9,7 @@ import {
   effectiveSoldOut,
 } from "@/lib/catalog";
 import { saveOrder, type StoredOrder, type StoredOrderItem } from "@/lib/orders";
+import { getCompany } from "@/lib/companies";
 
 export const runtime = "nodejs";
 
@@ -53,6 +54,7 @@ export async function POST(request: NextRequest) {
     customerName?: unknown;
     customerEmail?: unknown;
     customerPhone?: unknown;
+    companyId?: unknown;
     payment?: unknown;
     note?: unknown;
   };
@@ -179,10 +181,17 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Resolve a linked company/customer account, if one was chosen at the POS.
+  let company: { id: number; name: string; taxId: string } | undefined;
+  if (typeof b.companyId === "number" && Number.isInteger(b.companyId)) {
+    const c = await getCompany(b.companyId);
+    if (c) company = { id: c.id, name: c.name, taxId: c.taxId };
+  }
+
   const customerName =
     typeof b.customerName === "string" && b.customerName.trim()
       ? b.customerName.trim().slice(0, 80)
-      : "Walk-in";
+      : company?.name ?? "Walk-in";
   const customerEmail =
     typeof b.customerEmail === "string" ? b.customerEmail.trim().slice(0, 120) : "";
   const customerPhone =
@@ -210,6 +219,7 @@ export async function POST(request: NextRequest) {
     email: customerEmail,
     address: "Egypt shop (in-store)",
     note: `In-store sale — Egypt shop · Paid: ${paymentLabel}${extraNote}`,
+    ...(company ? { company } : {}),
     lang: "en",
     channel: "in_store",
     payment,

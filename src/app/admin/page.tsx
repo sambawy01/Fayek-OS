@@ -5,18 +5,13 @@ import { listUsers } from "@/lib/auth/users";
 import { listOrders } from "@/lib/orders";
 import { getCatalog, type Product } from "@/lib/catalog";
 import { buildPnL, resolvePeriod, type PnL } from "@/lib/finance-report";
-import {
-  getClientsOverview,
-  toClientSummary,
-  type ClientSummary,
-  type UnlinkedOverlay,
-} from "@/lib/crm";
+import { listCompanies, type CompanyDirectory } from "@/lib/companies";
 import AdminTabs, { type AdminTab } from "./admin-tabs";
 import SignOut from "./sign-out";
 import OrdersSection from "./orders-section";
 import ProductsSection from "./products-section";
 import FinanceSection from "./finance-section";
-import ClientsSection from "./clients-section";
+import CustomersSection from "./customers-section";
 import UsersSection, { type AdminUser } from "./users-section";
 import PlaceholderSection from "./placeholder-section";
 
@@ -99,28 +94,21 @@ export default async function AdminPage() {
     });
   }
 
-  // --- Clients ----------------------------------------------------------------
-  if (TAB_ACCESS.clients.includes(role)) {
-    let clientSummaries: ClientSummary[] = [];
-    let unlinked: UnlinkedOverlay[] = [];
-    let err: string | null = null;
+  // --- Customers (company accounts) -------------------------------------------
+  if (TAB_ACCESS.customers.includes(role)) {
+    let companies: CompanyDirectory[] = [];
     try {
-      const overview = await getClientsOverview();
-      clientSummaries = overview.profiles.map(toClientSummary);
-      unlinked = overview.unlinked;
+      companies = await listCompanies();
     } catch (e) {
-      console.error("clients load:", e);
-      err = LOAD_ERR("clients");
+      console.error("customers load:", e);
     }
     tabs.push({
-      id: "clients",
-      label: "Clients",
+      id: "customers",
+      label: "Customers",
       node: (
-        <ClientsSection
-          initialClients={clientSummaries}
-          initialUnlinked={unlinked}
-          adminKey={clientKey}
-          loadError={err}
+        <CustomersSection
+          initialCompanies={companies}
+          canAccount={can(role, "customers.account")}
         />
       ),
     });
