@@ -3,47 +3,18 @@
 import { useState, type ReactNode } from "react";
 
 /**
- * Client-side tab switcher for /admin: Orders | Products | Finance | Clients.
- * The server page renders every section once and passes them in as nodes;
- * switching tabs only toggles visibility (hidden sections keep their client
- * state — drafts, inline edits — intact).
+ * Client-side tab switcher for /admin. The server decides which tabs a role may
+ * see and passes them in already-rendered; this only toggles visibility (hidden
+ * panels keep their client state — drafts, inline edits — intact).
  */
-
-export type AdminTabId = "orders" | "products" | "finance" | "clients";
-
-interface TabDef {
-  id: AdminTabId;
+export interface AdminTab {
+  id: string;
   label: string;
-  /** Small count badge. Omitted when 0/undefined. */
-  badge?: number;
+  node: ReactNode;
 }
 
-export default function AdminTabs({
-  orders,
-  products,
-  finance,
-  clients,
-}: {
-  orders: ReactNode;
-  products: ReactNode;
-  finance: ReactNode;
-  clients: ReactNode;
-}) {
-  const [active, setActive] = useState<AdminTabId>("orders");
-
-  const tabs: TabDef[] = [
-    { id: "orders", label: "Orders" },
-    { id: "products", label: "Products" },
-    { id: "finance", label: "Finance" },
-    { id: "clients", label: "Clients" },
-  ];
-
-  const panels: Record<AdminTabId, ReactNode> = {
-    orders,
-    products,
-    finance,
-    clients,
-  };
+export default function AdminTabs({ tabs }: { tabs: AdminTab[] }) {
+  const [active, setActive] = useState<string>(tabs[0]?.id ?? "");
 
   return (
     <div>
@@ -70,17 +41,6 @@ export default function AdminTabs({
               }
             >
               {tab.label}
-              {tab.badge ? (
-                <span
-                  className={`ml-2 inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${
-                    selected
-                      ? "bg-[#FBF4E6]/20 text-[#FBF4E6]"
-                      : "bg-[#B5483A]/15 text-[#B5483A]"
-                  }`}
-                >
-                  {tab.badge}
-                </span>
-              ) : null}
             </button>
           );
         })}
@@ -94,7 +54,7 @@ export default function AdminTabs({
           aria-labelledby={`admin-tab-${tab.id}`}
           hidden={tab.id !== active}
         >
-          {panels[tab.id]}
+          {tab.node}
         </div>
       ))}
     </div>

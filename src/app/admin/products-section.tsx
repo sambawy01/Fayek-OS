@@ -459,12 +459,16 @@ function QuantityEditor({
 function ProductRow({
   product,
   adminKey,
+  canManage,
+  canEditStock,
   onUpdated,
   onDeleted,
   onEdit,
 }: {
   product: Product;
   adminKey: string;
+  canManage: boolean;
+  canEditStock: boolean;
   onUpdated: (p: Product) => void;
   onDeleted: (slug: string) => void;
   onEdit: () => void;
@@ -558,33 +562,48 @@ function ProductRow({
             {product.priceEgp.toLocaleString("en-EG")} EGP
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            <QuantityEditor
-              key={`${product.slug}-${product.quantity}`}
-              product={product}
-              adminKey={adminKey}
-              onUpdated={onUpdated}
-              onError={setError}
-            />
+            {canEditStock ? (
+              <QuantityEditor
+                key={`${product.slug}-${product.quantity}`}
+                product={product}
+                adminKey={adminKey}
+                onUpdated={onUpdated}
+                onError={setError}
+              />
+            ) : (
+              <span className="text-sm text-[#5E6B4F]">
+                In stock:{" "}
+                {product.quantity === null ? "not tracked" : product.quantity}
+              </span>
+            )}
           </div>
         </div>
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-2">
-        <button type="button" disabled={busy} onClick={onEdit} className={subtleBtn}>
-          Edit
-        </button>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => void patch({ soldOut: !product.soldOut })}
-          className={subtleBtn}
-        >
-          {product.soldOut ? "Mark in stock" : "Mark sold out"}
-        </button>
-        <button type="button" disabled={busy} onClick={() => void remove()} className={dangerBtn}>
-          Delete
-        </button>
-      </div>
+      {(canManage || canEditStock) && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {canManage && (
+            <button type="button" disabled={busy} onClick={onEdit} className={subtleBtn}>
+              Edit
+            </button>
+          )}
+          {canEditStock && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void patch({ soldOut: !product.soldOut })}
+              className={subtleBtn}
+            >
+              {product.soldOut ? "Mark in stock" : "Mark sold out"}
+            </button>
+          )}
+          {canManage && (
+            <button type="button" disabled={busy} onClick={() => void remove()} className={dangerBtn}>
+              Delete
+            </button>
+          )}
+        </div>
+      )}
 
       {error && <p className="mt-3 text-sm text-[#B5483A]">{error}</p>}
     </article>
@@ -597,10 +616,16 @@ export default function ProductsSection({
   initialProducts,
   adminKey,
   loadError,
+  canManage = true,
+  canEditStock = true,
 }: {
   initialProducts: Product[];
   adminKey: string;
   loadError: string | null;
+  /** Owner/Admin: add/edit/delete products and set prices. */
+  canManage?: boolean;
+  /** Owner/Admin/Inventory: adjust stock quantities. */
+  canEditStock?: boolean;
 }) {
   const [products, setProducts] = useState<Product[]>(initialProducts);
   const [editingSlug, setEditingSlug] = useState<string | null>(null);
@@ -630,14 +655,14 @@ export default function ProductsSection({
     <section>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <h2 className="font-serif text-2xl text-[#38492E]">
-          Products
+          Products Inventory
           {products.length > 0 && (
             <span className="ml-2 align-middle font-sans text-sm text-[#357F75]">
               {products.length}
             </span>
           )}
         </h2>
-        {!adding && !editing && (
+        {canManage && !adding && !editing && (
           <button type="button" onClick={() => setAdding(true)} className={primaryBtn}>
             Add product
           </button>
@@ -669,7 +694,7 @@ export default function ProductsSection({
           )}
           {products.length === 0 && !adding ? (
             <div className="rounded-2xl border border-dashed border-[#38492E]/15 bg-[#FBF4E6]/60 px-6 py-8 text-center text-sm text-[#5E6B4F]">
-              No products yet — add the first one.
+              No products yet{canManage ? " — add the first one." : "."}
             </div>
           ) : (
             products.map((product) => (
@@ -677,6 +702,8 @@ export default function ProductsSection({
                 key={product.slug}
                 product={product}
                 adminKey={adminKey}
+                canManage={canManage}
+                canEditStock={canEditStock}
                 onUpdated={handleUpdated}
                 onDeleted={handleDeleted}
                 onEdit={() => {

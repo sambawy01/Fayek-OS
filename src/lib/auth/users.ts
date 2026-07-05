@@ -47,6 +47,41 @@ export async function getUserByUsername(username: string): Promise<DbUser | null
   return rows[0] ? toUser(rows[0]) : null;
 }
 
+export async function getUserById(id: number): Promise<DbUser | null> {
+  const rows = (await db()`SELECT * FROM users WHERE id = ${id} LIMIT 1`) as UserRow[];
+  return rows[0] ? toUser(rows[0]) : null;
+}
+
+/** Number of ACTIVE owners — used to refuse removing the last one. */
+export async function countActiveOwners(): Promise<number> {
+  const rows = (await db()`
+    SELECT count(*)::int AS n FROM users WHERE role = 'owner' AND active = TRUE
+  `) as { n: number }[];
+  return rows[0]?.n ?? 0;
+}
+
+export async function updateUser(
+  id: number,
+  patch: { name?: string; role?: Role; active?: boolean; password?: string }
+): Promise<DbUser | null> {
+  // Merge provided fields over the current row (partial update).
+  const cur = await getUserById(id);
+  if (!cur) return null;
+  const name = patch.name !== undefined ? patch.name.trim() : cur.name;
+  const role = patch.role !== undefined ? patch.role : cur.role;
+  const active = patch.active !== undefined ? patch.active : cur.active;
+  const passwordHash =
+    patch.password !== undefined ? hashPassword(patch.password) : cur.passwordHash;
+  const rows = (await db()`
+    UPDATE users
+       SET name = ${name}, role = ${role}, active = ${active},
+           password_hash = ${passwordHash}, updated_at = now()
+     WHERE id = ${id}
+    RETURNING *
+  `) as UserRow[];
+  return rows[0] ? toUser(rows[0]) : null;
+}
+
 export async function listUsers(): Promise<DbUser[]> {
   const rows = (await db()`
     SELECT * FROM users ORDER BY

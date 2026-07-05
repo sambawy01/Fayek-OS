@@ -1,5 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SESSION_COOKIE, verifySession } from "@/lib/auth/session";
+import { can, type Capability } from "@/lib/auth/roles";
+
+/**
+ * Path-prefix → required capability. Centralized RBAC for whole API areas
+ * (checked after authentication). Field-level rules (e.g. inventory may PUT
+ * stock but not price) still live in the individual route.
+ */
+const API_GUARDS: { prefix: string; cap: Capability }[] = [
+  { prefix: "/api/admin/finance", cap: "finance.view" },
+  { prefix: "/api/admin/users", cap: "users.manage" },
+];
 
 /**
  * Session gate for the admin surface (Edge). A valid signed session cookie is
@@ -16,9 +27,20 @@ import { SESSION_COOKIE, verifySession } from "@/lib/auth/session";
  */
 export async function proxy(request: NextRequest) {
   const user = await verifySession(request.cookies.get(SESSION_COOKIE)?.value);
-  if (user) return NextResponse.next();
-
   const { pathname, search } = request.nextUrl;
+
+  if (user) {
+    // Authenticated → enforce area-level role guards for APIs.
+    const guard = API_GUARDS.find((g) => pathname.startsWith(g.prefix));
+    if (guard && !can(user.role, guard.cap)) {
+      return NextResponse.json(
+        { error: "You don't have permission for this." },
+        { status: 403 }
+      );
+    }
+    return NextResponse.next();
+  }
+
   if (pathname.startsWith("/api/")) {
     return NextResponse.json({ error: "Not signed in" }, { status: 401 });
   }

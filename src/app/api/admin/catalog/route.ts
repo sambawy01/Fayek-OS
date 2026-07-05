@@ -13,6 +13,8 @@ import {
   generateSlug,
   type Product,
 } from "@/lib/catalog";
+import { getSession } from "@/lib/auth/session-server";
+import { can } from "@/lib/auth/roles";
 
 export const runtime = "nodejs";
 
@@ -47,6 +49,13 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   if (!isAuthorizedAdminRequest(request)) return unauthorizedResponse();
+  const session = await getSession();
+  if (!can(session?.role, "catalog.editPrice")) {
+    return NextResponse.json(
+      { error: "Only Owner/Admin can add products (new products set a price)." },
+      { status: 403 }
+    );
+  }
 
   let body: unknown;
   try {

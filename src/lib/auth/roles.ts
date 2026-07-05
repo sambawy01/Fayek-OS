@@ -65,7 +65,8 @@ export const TAB_ACCESS: Record<string, Role[]> = {
   orders: ["owner", "admin", "sales"],
   inventory: ["owner", "admin", "inventory", "sales"], // sales sees read-only
   finance: ["owner", "admin"],
-  clients: ["owner", "admin", "sales"], // sales sees the directory only
+  // Sales gets a directory-only Clients view in Phase 2; owner/admin only for now.
+  clients: ["owner", "admin"],
   reports: ["owner", "admin", "inventory", "sales"],
   approvals: ["owner", "admin"],
   users: ["owner", "admin"],
