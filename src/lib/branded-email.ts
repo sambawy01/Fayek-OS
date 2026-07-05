@@ -43,14 +43,8 @@ export function brandedEmailHtml(options: BrandedEmailOptions): string {
   <div style="max-width:560px;margin:0 auto;padding:32px 16px;">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;width:100%;">
       <tr>
-        <td align="center" bgcolor="#100D0B" style="background-color:#100D0B;padding:24px;border-radius:16px 16px 0 0;">
-          <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;">
-            <tr>
-              <td align="center" bgcolor="#FFFFFF" style="background-color:#FFFFFF;padding:12px 20px;border-radius:12px;">
-                <img src="https://www.fayekabrasives.com/assets/images/logo.jpg" width="86" alt="${BRAND_NAME}" style="display:block;width:86px;height:auto;border:0;margin:0 auto;" />
-              </td>
-            </tr>
-          </table>
+        <td align="center" bgcolor="#FFFFFF" style="background-color:#FFFFFF;padding:28px 24px 22px;border:1px solid #E5DCCB;border-bottom:3px solid #357F75;border-radius:16px 16px 0 0;">
+          <img src="https://www.fayekabrasives.com/assets/images/logo.jpg" width="118" alt="${BRAND_NAME}" style="display:block;width:118px;height:auto;border:0;margin:0 auto;" />
         </td>
       </tr>
     </table>

@@ -15,14 +15,13 @@ import PDFDocument from "pdfkit";
  * stays untouched.
  */
 
-const LOGO_URL = "https://www.fayekabrasives.com/assets/logo-light.png?v=6";
+const LOGO_URL = "https://www.fayekabrasives.com/assets/images/logo.jpg";
 const BRAND_NAME = "FAYEK ABRASIVES";
 const FOOTER_TEXT = "www.fayekabrasives.com  ·  info@ftc-eg.com  ·  +20 2 2415 6092";
 
 const INK = "#3A332C";
 const MUTED = "#847866";
 const HAIRLINE = "#E5DCCB";
-const BAND = "#100D0B";
 const ACCENT = "#357F75";
 const PANEL = "#F5F0E6";
 
@@ -132,13 +131,16 @@ export async function renderQuotationPdf(input: QuotationPdfInput): Promise<Buff
     const savedX = doc.x, savedY = doc.y, savedBottom = doc.page.margins.bottom;
     doc.page.margins.bottom = 0;
     doc.save();
-    doc.rect(0, 0, pageWidth, BAND_HEIGHT).fill(BAND);
+    // White header with the real brand logo and a green accent rule beneath it.
     if (logo) {
-      doc.image(logo, (pageWidth - 240) / 2, (BAND_HEIGHT - 82) / 2, { fit: [240, 82], align: "center", valign: "center" });
+      const box = 84;
+      doc.image(logo, (pageWidth - box) / 2, (BAND_HEIGHT - box) / 2, { fit: [box, box], align: "center", valign: "center" });
     } else {
-      doc.font("Sans").fontSize(13).fillColor("#FFFDF9")
-        .text(BRAND_NAME, PAGE_MARGIN, BAND_HEIGHT / 2 - 8, { width: contentWidth, align: "center", characterSpacing: 2, features: NO_LIGATURES });
+      doc.font("Sans-Bold").fontSize(16).fillColor(INK)
+        .text(BRAND_NAME, PAGE_MARGIN, BAND_HEIGHT / 2 - 9, { width: contentWidth, align: "center", characterSpacing: 2.5, features: NO_LIGATURES });
     }
+    doc.moveTo(PAGE_MARGIN, BAND_HEIGHT - 2).lineTo(pageWidth - PAGE_MARGIN, BAND_HEIGHT - 2)
+      .lineWidth(2).strokeColor(ACCENT).stroke();
     const footerY = doc.page.height - 64;
     doc.moveTo(PAGE_MARGIN, footerY).lineTo(pageWidth - PAGE_MARGIN, footerY).lineWidth(0.5).strokeColor(HAIRLINE).stroke();
     doc.font("Sans").fontSize(9).fillColor(MUTED)
