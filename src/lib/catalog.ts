@@ -180,6 +180,28 @@ export async function decrementQuantities(
 }
 
 /**
+ * Add received stock to tracked products (batch receiving). Untracked products
+ * (quantity: null) are skipped — receiving doesn't start tracking a product
+ * that was intentionally untracked. Read-modify-write, same as the decrement.
+ */
+export async function addQuantities(
+  items: { slug: string; qty: number }[]
+): Promise<void> {
+  const catalog = await getCatalog();
+  const now = new Date().toISOString();
+  let changed = false;
+  for (const { slug, qty } of items) {
+    const product = catalog.find((p) => p.slug === slug);
+    if (product && typeof product.quantity === "number" && qty > 0) {
+      product.quantity = product.quantity + qty;
+      product.updatedAt = now;
+      changed = true;
+    }
+  }
+  if (changed) await saveCatalog(catalog);
+}
+
+/**
  * Restore tracked stock when an order is cancelled (read-modify-write).
  * The mirror of `decrementQuantities`: quantities are added back only for
  * items that still exist in the catalog AND still track stock — deleted

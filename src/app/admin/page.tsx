@@ -6,12 +6,16 @@ import { listOrders } from "@/lib/orders";
 import { getCatalog, type Product } from "@/lib/catalog";
 import { buildPnL, resolvePeriod, type PnL } from "@/lib/finance-report";
 import { listCompanies, type CompanyDirectory } from "@/lib/companies";
+import { listBatches, type Batch } from "@/lib/batches";
+import { listApprovals, type Approval } from "@/lib/approvals";
 import AdminTabs, { type AdminTab } from "./admin-tabs";
 import SignOut from "./sign-out";
 import OrdersSection from "./orders-section";
 import ProductsSection from "./products-section";
 import FinanceSection from "./finance-section";
 import CustomersSection from "./customers-section";
+import ReceivingSection from "./receiving-section";
+import ApprovalsSection from "./approvals-section";
 import UsersSection, { type AdminUser } from "./users-section";
 import PlaceholderSection from "./placeholder-section";
 
@@ -114,6 +118,32 @@ export default async function AdminPage() {
     });
   }
 
+  // --- Receiving (factory batches) --------------------------------------------
+  if (TAB_ACCESS.receiving.includes(role)) {
+    let batches: Batch[] = [];
+    let productOptions: { slug: string; name: string }[] = [];
+    try {
+      batches = await listBatches();
+      const catalog = await getCatalog();
+      productOptions = catalog
+        .filter((p) => p.active)
+        .map((p) => ({ slug: p.slug, name: p.en.name }));
+    } catch (e) {
+      console.error("receiving load:", e);
+    }
+    tabs.push({
+      id: "receiving",
+      label: "Receiving",
+      node: (
+        <ReceivingSection
+          initialBatches={batches}
+          products={productOptions}
+          canCreate={can(role, "batches.create")}
+        />
+      ),
+    });
+  }
+
   // --- Reports (module lands in a later phase) --------------------------------
   if (TAB_ACCESS.reports.includes(role)) {
     tabs.push({
@@ -134,22 +164,22 @@ export default async function AdminPage() {
     });
   }
 
-  // --- Approvals & Decisions (Owner/Admin; module lands in a later phase) -----
+  // --- Approvals & Decisions (Owner/Admin) ------------------------------------
   if (TAB_ACCESS.approvals.includes(role)) {
+    let approvals: Approval[] = [];
+    try {
+      approvals = await listApprovals("pending");
+    } catch (e) {
+      console.error("approvals load:", e);
+    }
+    const label =
+      approvals.length > 0
+        ? `Approvals & Decisions (${approvals.length})`
+        : "Approvals & Decisions";
     tabs.push({
       id: "approvals",
-      label: "Approvals & Decisions",
-      node: (
-        <PlaceholderSection
-          title="Approvals & Decisions"
-          blurb="Pending requests, escalated issues and executive AI recommendations."
-          bullets={[
-            "Factory-batch receiving discrepancies escalated here",
-            "Approve / reject pending requests with an audit trail",
-            "Executive AI recommendations on each decision",
-          ]}
-        />
-      ),
+      label,
+      node: <ApprovalsSection initialApprovals={approvals} />,
     });
   }
 

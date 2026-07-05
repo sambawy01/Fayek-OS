@@ -13,6 +13,8 @@ const API_GUARDS: { prefix: string; cap: Capability }[] = [
   // Directory (list/create) is sales-safe; the [id] account routes enforce
   // customers.account themselves.
   { prefix: "/api/admin/companies", cap: "customers.directory" },
+  { prefix: "/api/admin/batches", cap: "batches.view" },
+  { prefix: "/api/admin/approvals", cap: "approvals.resolve" },
 ];
 
 /**

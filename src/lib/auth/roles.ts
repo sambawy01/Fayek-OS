@@ -36,6 +36,10 @@ export const PERMISSIONS = {
   "catalog.editPrice": ["owner", "admin"], // financial value — NOT inventory
   "catalog.editStock": ["owner", "admin", "inventory"],
   "catalog.receiveBatch": ["owner", "admin", "inventory"],
+  // Factory batches / receiving
+  "batches.view": ["owner", "admin", "inventory"],
+  "batches.create": ["owner", "admin"], // declare a factory dispatch
+  "batches.receive": ["owner", "admin", "inventory"], // count & receive
   // Orders / POS
   "orders.view": ["owner", "admin", "sales"],
   "pos.sell": ["owner", "admin", "sales"],
@@ -68,6 +72,7 @@ export const TAB_ACCESS: Record<string, Role[]> = {
   // Customers (companies): sales gets the directory view; owner/admin get the
   // full account (notes, payment terms, edit).
   customers: ["owner", "admin", "sales"],
+  receiving: ["owner", "admin", "inventory"],
   reports: ["owner", "admin", "inventory", "sales"],
   approvals: ["owner", "admin"],
   users: ["owner", "admin"],
