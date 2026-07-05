@@ -42,9 +42,9 @@ export default function ProductCombobox({
         onBlur={() => setTimeout(() => setOpen(false), 150)}
       />
       {open && (
-        <div className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-xl border border-[#38492E]/15 bg-white shadow-md">
+        <div className="absolute z-20 mt-1 max-h-72 w-full overflow-auto rounded-xl border border-[#38492E]/15 bg-white shadow-lg">
           {shown.length === 0 ? (
-            <div className="px-3 py-2 text-sm text-[#5E6B4F]">No matches</div>
+            <div className="px-3 py-3 text-sm text-[#5E6B4F]">No matches</div>
           ) : (
             shown.map((p) => (
               <button
@@ -52,12 +52,12 @@ export default function ProductCombobox({
                 type="button"
                 // onMouseDown fires before the input's blur, so the click lands.
                 onMouseDown={(e) => { e.preventDefault(); onChange(p.slug); setOpen(false); }}
-                className={`block w-full px-3 py-2 text-left text-sm hover:bg-[#EFE7D6] ${
-                  p.slug === value ? "bg-[#EFE7D6] font-medium" : "text-[#38492E]"
+                className={`block w-full border-b border-[#38492E]/8 px-3 py-2.5 text-left last:border-0 hover:bg-[#EFE7D6] ${
+                  p.slug === value ? "bg-[#EFE7D6]" : ""
                 }`}
               >
-                {p.name}
-                <span className="ml-2 text-xs text-[#5E6B4F]">{p.slug}</span>
+                <span className="block text-sm font-medium leading-snug text-[#38492E]">{p.name}</span>
+                <span className="mt-0.5 block font-mono text-[11px] text-[#5E6B4F]">{p.slug}</span>
               </button>
             ))
           )}

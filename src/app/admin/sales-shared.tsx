@@ -35,26 +35,49 @@ export function LineEditor({
   lines: Line[]; setLines: (l: Line[]) => void;
 }) {
   const total = lines.reduce((s, l) => s + (Number(l.qty) || 0) * (Number(l.unitPriceEgp) || 0), 0);
+  const lbl = "mb-1 block text-[11px] font-medium uppercase tracking-[0.06em] text-[#5E6B4F]";
   return (
     <div>
-      <div className="space-y-2">
-        {lines.map((l, i) => (
-          <div key={i} className="flex items-center gap-2">
-            <div className="flex-1">
-              <ProductCombobox products={products} value={l.slug}
-                onChange={(slug) => setLines(lines.map((x, j) => j === i
-                  ? { ...x, slug, name: products.find((p) => p.slug === slug)?.name ?? "", unitPriceEgp: x.unitPriceEgp || String(priceBySlug[slug] ?? "") }
-                  : x))} />
+      <div className="space-y-3">
+        {lines.map((l, i) => {
+          const subtotal = (Number(l.qty) || 0) * (Number(l.unitPriceEgp) || 0);
+          return (
+            <div key={i} className="rounded-2xl border border-[#38492E]/12 bg-white p-3">
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-[#5E6B4F]">Item {i + 1}</span>
+                {lines.length > 1 && (
+                  <button className="rounded-full px-2 py-0.5 text-sm text-[#B5483A] transition hover:bg-[#B5483A]/10"
+                    onClick={() => setLines(lines.filter((_, j) => j !== i))} aria-label="Remove item">Remove</button>
+                )}
+              </div>
+              <div>
+                <label className={lbl}>Product</label>
+                <ProductCombobox products={products} value={l.slug}
+                  onChange={(slug) => setLines(lines.map((x, j) => j === i
+                    ? { ...x, slug, name: products.find((p) => p.slug === slug)?.name ?? "", unitPriceEgp: x.unitPriceEgp || String(priceBySlug[slug] ?? "") }
+                    : x))} />
+              </div>
+              <div className="mt-2 flex flex-wrap items-end gap-3">
+                <div className="w-24">
+                  <label className={lbl}>Qty</label>
+                  <input className={inputCls} inputMode="numeric" placeholder="1" value={l.qty}
+                    onChange={(e) => setLines(lines.map((x, j) => j === i ? { ...x, qty: e.target.value } : x))} />
+                </div>
+                <div className="w-36">
+                  <label className={lbl}>Unit price (EGP)</label>
+                  <input className={inputCls} inputMode="numeric" placeholder="0" value={l.unitPriceEgp}
+                    onChange={(e) => setLines(lines.map((x, j) => j === i ? { ...x, unitPriceEgp: e.target.value } : x))} />
+                </div>
+                <div className="ml-auto pb-2 text-right">
+                  <span className={lbl}>Subtotal</span>
+                  <span className="text-sm font-medium text-[#38492E]">{egp(subtotal)}</span>
+                </div>
+              </div>
             </div>
-            <input className={`${inputCls} w-20`} inputMode="numeric" placeholder="Qty" value={l.qty}
-              onChange={(e) => setLines(lines.map((x, j) => j === i ? { ...x, qty: e.target.value } : x))} />
-            <input className={`${inputCls} w-28`} inputMode="numeric" placeholder="Unit EGP" value={l.unitPriceEgp}
-              onChange={(e) => setLines(lines.map((x, j) => j === i ? { ...x, unitPriceEgp: e.target.value } : x))} />
-            <button className={subtleBtn} onClick={() => setLines(lines.filter((_, j) => j !== i))}>–</button>
-          </div>
-        ))}
+          );
+        })}
       </div>
-      <div className="mt-2 flex items-center justify-between">
+      <div className="mt-3 flex items-center justify-between">
         <button className={subtleBtn} onClick={() => setLines([...lines, { slug: "", name: "", qty: "1", unitPriceEgp: "" }])}>+ Add line</button>
         <span className="text-sm text-[#38492E]">Total: <span className="font-medium">{egp(total)}</span></span>
       </div>
