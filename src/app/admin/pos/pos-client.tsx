@@ -47,6 +47,9 @@ export default function PosClient({
   const [seq, setSeq] = useState(0);
   const [payment, setPayment] = useState<PaymentId>("cash");
   const [company, setCompany] = useState<CompanyDirectory | null>(null);
+  const [credit, setCredit] = useState(false);
+  const [advance, setAdvance] = useState("");
+  const [installments, setInstallments] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [busy, setBusy] = useState(false);
@@ -183,6 +186,14 @@ export default function PosClient({
           customerPhone: phone,
           companyId: company?.id,
           payment,
+          ...(credit && company
+            ? {
+                credit: {
+                  advanceAmount: Number(advance || "0"),
+                  installmentCount: Number(installments || "0"),
+                },
+              }
+            : {}),
         }),
       });
       const payload = await res.json().catch(() => null);
@@ -464,6 +475,24 @@ export default function PosClient({
             <div className="mb-2">
               <PosCustomer selected={company} onSelect={setCompany} />
             </div>
+            {company && (
+              <div className="mb-2 rounded-xl border border-[#38492E]/10 bg-white px-3 py-2">
+                <label className="flex items-center gap-2 text-sm text-[#38492E]">
+                  <input type="checkbox" checked={credit} onChange={(e) => setCredit(e.target.checked)} />
+                  Credit sale (unpaid balance)
+                </label>
+                {credit && (
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    <input inputMode="numeric" value={advance} onChange={(e) => setAdvance(e.target.value)}
+                      placeholder="Advance (EGP)"
+                      className="rounded-xl border border-[#3A332C]/15 bg-white px-3 py-2 text-sm text-[#38492E] outline-none focus:border-[#357F75]" />
+                    <input inputMode="numeric" value={installments} onChange={(e) => setInstallments(e.target.value)}
+                      placeholder="# Installments"
+                      className="rounded-xl border border-[#3A332C]/15 bg-white px-3 py-2 text-sm text-[#38492E] outline-none focus:border-[#357F75]" />
+                  </div>
+                )}
+              </div>
+            )}
             <input
               type="email"
               value={email}

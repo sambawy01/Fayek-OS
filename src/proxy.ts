@@ -9,12 +9,14 @@ import { can, type Capability } from "@/lib/auth/roles";
  */
 const API_GUARDS: { prefix: string; cap: Capability }[] = [
   { prefix: "/api/admin/finance", cap: "finance.view" },
+  { prefix: "/api/admin/receivables", cap: "finance.view" },
   { prefix: "/api/admin/users", cap: "users.manage" },
   // Directory (list/create) is sales-safe; the [id] account routes enforce
   // customers.account themselves.
   { prefix: "/api/admin/companies", cap: "customers.directory" },
   { prefix: "/api/admin/batches", cap: "batches.view" },
   { prefix: "/api/admin/approvals", cap: "approvals.resolve" },
+  { prefix: "/api/admin/reports", cap: "reports.view" },
 ];
 
 /**

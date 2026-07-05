@@ -10,6 +10,7 @@ import {
 } from "@/lib/catalog";
 import { saveOrder, type StoredOrder, type StoredOrderItem } from "@/lib/orders";
 import { getCompany } from "@/lib/companies";
+import { createReceivable } from "@/lib/receivables";
 
 export const runtime = "nodejs";
 
@@ -57,6 +58,7 @@ export async function POST(request: NextRequest) {
     companyId?: unknown;
     payment?: unknown;
     note?: unknown;
+    credit?: unknown;
   };
 
   if (!Array.isArray(b.items) || b.items.length === 0) {
@@ -251,5 +253,37 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  return NextResponse.json({ ok: true, order: record });
+  // Credit sale → open a receivable for the balance (needs a linked customer).
+  let receivableId: number | undefined;
+  if (company && b.credit && typeof b.credit === "object") {
+    const cr = b.credit as {
+      advanceAmount?: unknown;
+      installmentCount?: unknown;
+      firstDueDate?: unknown;
+    };
+    const advance =
+      typeof cr.advanceAmount === "number" ? Math.max(0, Math.round(cr.advanceAmount)) : 0;
+    try {
+      const rec = await createReceivable(
+        {
+          companyId: company.id,
+          companyName: company.name,
+          orderRef: orderNumber,
+          totalEgp,
+          advance: advance > 0 ? { amountEgp: advance, method: payment } : undefined,
+          installmentCount:
+            typeof cr.installmentCount === "number" ? Math.round(cr.installmentCount) : undefined,
+          firstDueDate: typeof cr.firstDueDate === "string" ? cr.firstDueDate : null,
+          notes: "From POS credit sale",
+        },
+        null
+      );
+      receivableId = rec.id;
+    } catch (error) {
+      console.error(`[admin/orders] Receivable creation failed (${orderNumber}):`, error);
+      // The sale is recorded; surface a soft warning rather than failing it.
+    }
+  }
+
+  return NextResponse.json({ ok: true, order: record, receivableId });
 }

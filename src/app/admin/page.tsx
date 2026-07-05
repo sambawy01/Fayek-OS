@@ -8,16 +8,26 @@ import { buildPnL, resolvePeriod, type PnL } from "@/lib/finance-report";
 import { listCompanies, type CompanyDirectory } from "@/lib/companies";
 import { listBatches, type Batch } from "@/lib/batches";
 import { listApprovals, type Approval } from "@/lib/approvals";
+import { listReceivables, type Receivable } from "@/lib/receivables";
+import {
+  buildSalesReport,
+  buildInventoryReport,
+  buildReceivablesReport,
+  type SalesReport,
+  type InventoryReport,
+  type ReceivablesReport,
+} from "@/lib/reports";
 import AdminTabs, { type AdminTab } from "./admin-tabs";
 import SignOut from "./sign-out";
 import OrdersSection from "./orders-section";
 import ProductsSection from "./products-section";
 import FinanceSection from "./finance-section";
 import CustomersSection from "./customers-section";
+import ReceivablesSection from "./receivables-section";
 import ReceivingSection from "./receiving-section";
 import ApprovalsSection from "./approvals-section";
+import ReportsSection from "./reports-section";
 import UsersSection, { type AdminUser } from "./users-section";
-import PlaceholderSection from "./placeholder-section";
 
 export const dynamic = "force-dynamic";
 
@@ -91,10 +101,21 @@ export default async function AdminPage() {
       console.error("finance load:", e);
       err = LOAD_ERR("the finance ledger");
     }
+    let receivables: Receivable[] = [];
+    try {
+      receivables = await listReceivables(false);
+    } catch (e) {
+      console.error("receivables load:", e);
+    }
     tabs.push({
       id: "finance",
       label: "Finance",
-      node: <FinanceSection initialPnl={pnl} adminKey={clientKey} loadError={err} />,
+      node: (
+        <>
+          <FinanceSection initialPnl={pnl} adminKey={clientKey} loadError={err} />
+          <ReceivablesSection initialReceivables={receivables} />
+        </>
+      ),
     });
   }
 
@@ -144,21 +165,29 @@ export default async function AdminPage() {
     });
   }
 
-  // --- Reports (module lands in a later phase) --------------------------------
+  // --- Reports (role-appropriate + AI analysis) -------------------------------
   if (TAB_ACCESS.reports.includes(role)) {
+    let sales: SalesReport | null = null;
+    let inventory: InventoryReport | null = null;
+    let receivables: ReceivablesReport | null = null;
+    try {
+      // Sales → owner/admin/sales; Inventory → owner/admin/inventory;
+      // Receivables → owner/admin (finance).
+      if (can(role, "orders.view")) sales = await buildSalesReport(30);
+      if (can(role, "catalog.editStock") || role === "sales")
+        inventory = await buildInventoryReport();
+      if (can(role, "finance.view")) receivables = await buildReceivablesReport();
+    } catch (e) {
+      console.error("reports load:", e);
+    }
     tabs.push({
       id: "reports",
       label: "Reports",
       node: (
-        <PlaceholderSection
-          title="Reports"
-          blurb="Sales, inventory and finance reports with AI analysis."
-          bullets={[
-            "Sales by day / product / customer, with trends",
-            "Inventory levels, low-stock and dead-stock reports",
-            "Finance: revenue, receivables ageing, P&L",
-            "AI summary + recommendations on each report",
-          ]}
+        <ReportsSection
+          sales={sales}
+          inventory={inventory}
+          receivables={receivables}
         />
       ),
     });
