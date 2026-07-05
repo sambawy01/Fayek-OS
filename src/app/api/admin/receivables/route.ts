@@ -42,6 +42,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Advance can't exceed the total." }, { status: 400 });
   }
 
+  // Explicit installment schedule (amount + optional due date each).
+  const installments = Array.isArray(body.installments)
+    ? (body.installments as unknown[])
+        .map((r) => {
+          const o = r as { amountEgp?: unknown; dueDate?: unknown };
+          return {
+            amountEgp: num(o.amountEgp),
+            dueDate: typeof o.dueDate === "string" && o.dueDate ? o.dueDate : null,
+          };
+        })
+        .filter((x) => x.amountEgp > 0)
+    : undefined;
+
   const rec = await createReceivable(
     {
       companyId: typeof body.companyId === "number" ? body.companyId : null,
@@ -51,6 +64,7 @@ export async function POST(request: Request) {
       dueDate: str(body.dueDate) || null,
       notes: str(body.notes),
       advance: advanceAmount > 0 ? { amountEgp: advanceAmount, method: str(body.advanceMethod) || "cash" } : undefined,
+      installments: installments && installments.length > 0 ? installments : undefined,
       installmentCount: num(body.installmentCount) || undefined,
       firstDueDate: str(body.firstDueDate) || null,
     },

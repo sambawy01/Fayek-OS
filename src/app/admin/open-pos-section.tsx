@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { PurchaseOrder, PurchaseOrderDetail } from "@/lib/sales";
+import InstallmentBuilder, { type Inst } from "./installment-builder";
 
 const primaryBtn =
   "rounded-full bg-[#357F75] px-4 py-2 text-sm font-medium text-[#FBF4E6] transition hover:opacity-90 disabled:opacity-50";
@@ -45,7 +46,8 @@ export default function OpenPOsSection({ initialOpen }: { initialOpen: PurchaseO
 function POCard({ po, onProcessed, onError }: { po: PurchaseOrder; onProcessed: (id: number) => void; onError: (m: string) => void }) {
   const [open, setOpen] = useState(false);
   const [detail, setDetail] = useState<PurchaseOrderDetail | null>(null);
-  const [inv, setInv] = useState({ advanceEgp: "", installmentCount: "", dueDate: "" });
+  const [inv, setInv] = useState({ advanceEgp: "", dueDate: "" });
+  const [installments, setInstallments] = useState<Inst[]>([]);
   const [busy, setBusy] = useState(false);
   const [fulfilled, setFulfilled] = useState(po.fulfilled);
   const [invoiced, setInvoiced] = useState(!!po.receivableId);
@@ -69,7 +71,14 @@ function POCard({ po, onProcessed, onError }: { po: PurchaseOrder; onProcessed: 
     if (r) { setFulfilled(true); if (r.purchaseOrder.status === "closed") onProcessed(po.id); }
   }
   async function doInvoice() {
-    const r = await act({ action: "invoice", advanceEgp: Number(inv.advanceEgp || "0"), installmentCount: Number(inv.installmentCount || "0"), dueDate: inv.dueDate || null });
+    const r = await act({
+      action: "invoice",
+      advanceEgp: Number(inv.advanceEgp || "0"),
+      dueDate: inv.dueDate || null,
+      installments: installments
+        .map((i) => ({ amountEgp: Number(i.amount || "0"), dueDate: i.due || null }))
+        .filter((i) => i.amountEgp > 0),
+    });
     if (r) { setInvoiced(true); if (r.purchaseOrder.status === "closed") onProcessed(po.id); }
   }
 
@@ -92,9 +101,15 @@ function POCard({ po, onProcessed, onError }: { po: PurchaseOrder; onProcessed: 
               <p className="mb-2 text-xs uppercase tracking-[0.06em] text-[#5E6B4F]">Invoice → receivable</p>
               <div className="flex flex-wrap items-center gap-2">
                 <input className="w-28 rounded-xl border border-[#38492E]/15 bg-white px-2 py-1.5 text-sm" inputMode="numeric" placeholder="Advance EGP" value={inv.advanceEgp} onChange={(e) => setInv({ ...inv, advanceEgp: e.target.value })} />
-                <input className="w-28 rounded-xl border border-[#38492E]/15 bg-white px-2 py-1.5 text-sm" inputMode="numeric" placeholder="# Installments" value={inv.installmentCount} onChange={(e) => setInv({ ...inv, installmentCount: e.target.value })} />
-                <input className="rounded-xl border border-[#38492E]/15 bg-white px-2 py-1.5 text-sm" type="date" value={inv.dueDate} onChange={(e) => setInv({ ...inv, dueDate: e.target.value })} />
+                <input className="rounded-xl border border-[#38492E]/15 bg-white px-2 py-1.5 text-sm" type="date" value={inv.dueDate} onChange={(e) => setInv({ ...inv, dueDate: e.target.value })} title="Overall due date" />
                 <button className={primaryBtn} disabled={busy} onClick={() => void doInvoice()}>Invoice</button>
+              </div>
+              <div className="mt-3">
+                <InstallmentBuilder
+                  value={installments}
+                  onChange={setInstallments}
+                  remaining={Math.max(0, po.totalEgp - Number(inv.advanceEgp || "0"))}
+                />
               </div>
             </div>
           ) : (

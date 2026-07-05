@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { Receivable, ReceivableDetail } from "@/lib/receivables";
 import type { CompanyDirectory } from "@/lib/companies";
+import InstallmentBuilder, { type Inst } from "./installment-builder";
 
 const inputCls =
   "w-full rounded-xl border border-[#38492E]/15 bg-white px-3 py-2 text-sm text-[#38492E] outline-none focus:border-[#357F75]";
@@ -38,9 +39,9 @@ export default function ReceivablesSection({
 
   const [f, setF] = useState({
     companyId: null as number | null, companyName: "",
-    totalEgp: "", dueDate: "", advanceAmount: "", advanceMethod: "cash",
-    installmentCount: "", firstDueDate: "", notes: "",
+    totalEgp: "", dueDate: "", advanceAmount: "", advanceMethod: "cash", notes: "",
   });
+  const [installments, setInstallments] = useState<Inst[]>([]);
   const [companyQ, setCompanyQ] = useState("");
   const [companyHits, setCompanyHits] = useState<CompanyDirectory[]>([]);
 
@@ -63,14 +64,17 @@ export default function ReceivablesSection({
           companyId: f.companyId, companyName: f.companyName,
           totalEgp: Number(f.totalEgp), dueDate: f.dueDate || null, notes: f.notes,
           advanceAmount: Number(f.advanceAmount || "0"), advanceMethod: f.advanceMethod,
-          installmentCount: Number(f.installmentCount || "0"), firstDueDate: f.firstDueDate || null,
+          installments: installments
+            .map((i) => ({ amountEgp: Number(i.amount || "0"), dueDate: i.due || null }))
+            .filter((i) => i.amountEgp > 0),
         }),
       });
       if (!res.ok) return setError(await readError(res));
       const { receivable } = (await res.json()) as { receivable: ReceivableDetail };
       setItems((prev) => [receivable, ...prev]);
       setAdding(false);
-      setF({ companyId: null, companyName: "", totalEgp: "", dueDate: "", advanceAmount: "", advanceMethod: "cash", installmentCount: "", firstDueDate: "", notes: "" });
+      setF({ companyId: null, companyName: "", totalEgp: "", dueDate: "", advanceAmount: "", advanceMethod: "cash", notes: "" });
+      setInstallments([]);
       setCompanyQ(""); setCompanyHits([]);
     } catch { setError("Network error — please try again."); }
     finally { setBusy(false); }
@@ -121,10 +125,13 @@ export default function ReceivablesSection({
               <select className={inputCls} value={f.advanceMethod} onChange={(e) => setF({ ...f, advanceMethod: e.target.value })}>
                 <option value="cash">Cash</option><option value="card">Card</option><option value="instapay">InstaPay</option><option value="transfer">Transfer</option>
               </select></div>
-            <div><label className="mb-1 block text-xs uppercase tracking-[0.08em] text-[#5E6B4F]"># Installments</label>
-              <input className={inputCls} inputMode="numeric" placeholder="0 = none" value={f.installmentCount} onChange={(e) => setF({ ...f, installmentCount: e.target.value })} /></div>
-            <div><label className="mb-1 block text-xs uppercase tracking-[0.08em] text-[#5E6B4F]">First installment due</label>
-              <input className={inputCls} type="date" value={f.firstDueDate} onChange={(e) => setF({ ...f, firstDueDate: e.target.value })} /></div>
+          </div>
+          <div className="mt-4">
+            <InstallmentBuilder
+              value={installments}
+              onChange={setInstallments}
+              remaining={Math.max(0, Number(f.totalEgp || "0") - Number(f.advanceAmount || "0"))}
+            />
           </div>
           <div className="mt-4 flex gap-2">
             <button className={primaryBtn} disabled={busy || !f.totalEgp} onClick={() => void create()}>Create</button>

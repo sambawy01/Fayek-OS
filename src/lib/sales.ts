@@ -151,7 +151,14 @@ export async function fulfilPurchaseOrder(id: number): Promise<PurchaseOrderDeta
 /** Raise a receivable for a PO (advance/installments optional) and link it. */
 export async function invoicePurchaseOrder(
   id: number,
-  opts: { advanceEgp?: number; advanceMethod?: string; installmentCount?: number; dueDate?: string | null; firstDueDate?: string | null },
+  opts: {
+    advanceEgp?: number;
+    advanceMethod?: string;
+    installments?: { amountEgp: number; dueDate?: string | null }[];
+    installmentCount?: number;
+    dueDate?: string | null;
+    firstDueDate?: string | null;
+  },
   invoicedBy: number | null
 ): Promise<PurchaseOrderDetail | null> {
   const po = await getPurchaseOrder(id);
@@ -161,6 +168,7 @@ export async function invoicePurchaseOrder(
       companyId: po.companyId, companyName: po.companyName, orderRef: `PO-${po.id}`,
       totalEgp: po.totalEgp, dueDate: opts.dueDate ?? null, notes: `From purchase order #${po.id}`,
       advance: opts.advanceEgp && opts.advanceEgp > 0 ? { amountEgp: opts.advanceEgp, method: opts.advanceMethod ?? "cash" } : undefined,
+      installments: opts.installments,
       installmentCount: opts.installmentCount, firstDueDate: opts.firstDueDate ?? null,
     },
     invoicedBy

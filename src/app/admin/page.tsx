@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth/session-server";
 import { ROLE_LABELS, can, TAB_ACCESS, type Role } from "@/lib/auth/roles";
 import { listUsers } from "@/lib/auth/users";
-import { listOrders } from "@/lib/orders";
 import { getCatalog, type Product } from "@/lib/catalog";
 import { buildPnL, resolvePeriod, type PnL } from "@/lib/finance-report";
 import { listCompanies, type CompanyDirectory } from "@/lib/companies";
@@ -25,7 +24,7 @@ import {
 } from "@/lib/sales";
 import AdminTabs, { type AdminTab } from "./admin-tabs";
 import SignOut from "./sign-out";
-import OrdersSection from "./orders-section";
+import OrderBookSection from "./order-book-section";
 import ProductsSection from "./products-section";
 import FinanceSection from "./finance-section";
 import CustomersSection from "./customers-section";
@@ -33,7 +32,8 @@ import ReceivablesSection from "./receivables-section";
 import ReceivingSection from "./receiving-section";
 import ApprovalsSection from "./approvals-section";
 import ReportsSection from "./reports-section";
-import SalesSection from "./sales-section";
+import PurchaseOrdersSection from "./purchase-orders-section";
+import QuotationsSection from "./quotations-section";
 import OpenPOsSection from "./open-pos-section";
 import UsersSection, { type AdminUser } from "./users-section";
 
@@ -55,20 +55,18 @@ export default async function AdminPage() {
 
   const tabs: AdminTab[] = [];
 
-  // --- Orders -----------------------------------------------------------------
+  // --- Order Book (all purchase orders across their lifecycle) -----------------
   if (TAB_ACCESS.orders.includes(role)) {
-    let orders: Awaited<ReturnType<typeof listOrders>> = [];
-    let err: string | null = null;
+    let allPOs: PurchaseOrder[] = [];
     try {
-      orders = await listOrders({ limit: 100 });
+      allPOs = await listPurchaseOrders(false);
     } catch (e) {
-      console.error("orders load:", e);
-      err = LOAD_ERR("orders");
+      console.error("order book load:", e);
     }
     tabs.push({
       id: "orders",
-      label: "Orders",
-      node: <OrdersSection orders={orders} adminKey={clientKey} loadError={err} />,
+      label: "Order Book",
+      node: <OrderBookSection initial={allPOs} />,
     });
   }
 
@@ -150,8 +148,8 @@ export default async function AdminPage() {
     });
   }
 
-  // --- Sales (quotations, purchase orders, outreach) --------------------------
-  if (TAB_ACCESS.sales.includes(role)) {
+  // --- Purchase Orders (industrial PO generator) + Quotations & Outreach ------
+  if (TAB_ACCESS.purchaseOrders.includes(role) || TAB_ACCESS.quotations.includes(role)) {
     let quotations: Quotation[] = [];
     let pos: PurchaseOrder[] = [];
     let productOptions: { slug: string; name: string }[] = [];
@@ -165,18 +163,32 @@ export default async function AdminPage() {
     } catch (e) {
       console.error("sales load:", e);
     }
-    tabs.push({
-      id: "sales",
-      label: "Sales",
-      node: (
-        <SalesSection
-          products={productOptions}
-          priceBySlug={priceBySlug}
-          initialQuotations={quotations}
-          initialPOs={pos}
-        />
-      ),
-    });
+    if (TAB_ACCESS.purchaseOrders.includes(role)) {
+      tabs.push({
+        id: "purchaseOrders",
+        label: "Purchase Orders",
+        node: (
+          <PurchaseOrdersSection
+            products={productOptions}
+            priceBySlug={priceBySlug}
+            initial={pos}
+          />
+        ),
+      });
+    }
+    if (TAB_ACCESS.quotations.includes(role)) {
+      tabs.push({
+        id: "quotations",
+        label: "Quotations & Outreach",
+        node: (
+          <QuotationsSection
+            products={productOptions}
+            priceBySlug={priceBySlug}
+            initialQuotations={quotations}
+          />
+        ),
+      });
+    }
   }
 
   // --- Receiving (factory batches) --------------------------------------------
@@ -303,14 +315,6 @@ export default async function AdminPage() {
         <p className="mt-2 text-sm text-[#5E6B4F]">
           Times shown in Cairo time (Africa/Cairo).
         </p>
-        {can(role, "pos.sell") && (
-          <a
-            href="/admin/pos"
-            className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#357F75] px-5 py-2.5 text-sm font-medium text-[#FBF4E6] transition hover:opacity-90"
-          >
-            Open Store POS →
-          </a>
-        )}
       </header>
 
       <AdminTabs tabs={tabs} />

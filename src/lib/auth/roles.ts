@@ -44,9 +44,8 @@ export const PERMISSIONS = {
   "batches.view": ["owner", "admin", "inventory", "factory"],
   "batches.create": ["owner", "admin", "factory"], // declare a factory dispatch
   "batches.receive": ["owner", "admin", "inventory"], // count & receive — NOT factory
-  // Orders / POS
+  // Order book (purchase orders across their lifecycle)
   "orders.view": ["owner", "admin", "sales"],
-  "pos.sell": ["owner", "admin", "sales"],
   // Sales: quotations + purchase orders + outreach
   "sales.quote": ["owner", "admin", "sales"],
   "sales.po.create": ["owner", "admin", "sales"],
@@ -75,8 +74,9 @@ export function can(role: Role | null | undefined, cap: Capability): boolean {
 
 /** The tabs each role may open in /admin (drives nav + server-side gating). */
 export const TAB_ACCESS: Record<string, Role[]> = {
-  orders: ["owner", "admin", "sales"],
-  sales: ["owner", "admin", "sales"], // quotations, POs, outreach
+  orders: ["owner", "admin", "sales"], // order book — PO lifecycle
+  purchaseOrders: ["owner", "admin", "sales"], // industrial PO generator
+  quotations: ["owner", "admin", "sales"], // quotations + outreach
   inventory: ["owner", "admin", "inventory", "sales"], // sales sees read-only
   finance: ["owner", "admin"],
   // Customers (companies): sales gets the directory view; owner/admin get the

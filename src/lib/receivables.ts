@@ -66,6 +66,9 @@ export async function createReceivable(
     dueDate?: string | null;
     notes?: string;
     advance?: { amountEgp: number; method: string };
+    /** Explicit installment schedule (amount + optional due date each). */
+    installments?: { amountEgp: number; dueDate?: string | null }[];
+    /** Fallback: auto-split the remaining balance into N equal monthly steps. */
     installmentCount?: number;
     firstDueDate?: string | null;
   },
@@ -87,21 +90,33 @@ export async function createReceivable(
     `;
   }
 
-  // Optional installment plan over the remaining balance.
+  // Installment plan: explicit schedule wins; otherwise auto-split.
   const advance = input.advance?.amountEgp ?? 0;
   const remaining = Math.max(0, input.totalEgp - advance);
-  const n = input.installmentCount ?? 0;
-  if (n > 0 && remaining > 0) {
-    const base = Math.floor(remaining / n);
-    const first = new Date(input.firstDueDate ?? Date.now());
-    for (let i = 0; i < n; i++) {
-      const amt = i === n - 1 ? remaining - base * (n - 1) : base; // last picks up the rounding
-      const due = new Date(first);
-      due.setMonth(due.getMonth() + i);
+  if (input.installments && input.installments.length > 0) {
+    let seq = 1;
+    for (const it of input.installments) {
+      if (!(it.amountEgp > 0)) continue;
       await db()`
         INSERT INTO installments (receivable_id, seq, due_date, amount_egp)
-        VALUES (${id}, ${i + 1}, ${due.toISOString().slice(0, 10)}, ${amt})
+        VALUES (${id}, ${seq}, ${it.dueDate ?? null}, ${Math.round(it.amountEgp)})
       `;
+      seq++;
+    }
+  } else {
+    const n = input.installmentCount ?? 0;
+    if (n > 0 && remaining > 0) {
+      const base = Math.floor(remaining / n);
+      const first = new Date(input.firstDueDate ?? Date.now());
+      for (let i = 0; i < n; i++) {
+        const amt = i === n - 1 ? remaining - base * (n - 1) : base; // last picks up rounding
+        const due = new Date(first);
+        due.setMonth(due.getMonth() + i);
+        await db()`
+          INSERT INTO installments (receivable_id, seq, due_date, amount_egp)
+          VALUES (${id}, ${i + 1}, ${due.toISOString().slice(0, 10)}, ${amt})
+        `;
+      }
     }
   }
 

@@ -57,11 +57,20 @@ export async function POST(
   if (body.action === "invoice") {
     const num = (v: unknown) => (typeof v === "number" ? Math.round(v) : 0);
     const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+    const installments = Array.isArray(body.installments)
+      ? (body.installments as unknown[])
+          .map((r) => {
+            const o = r as { amountEgp?: unknown; dueDate?: unknown };
+            return { amountEgp: num(o.amountEgp), dueDate: typeof o.dueDate === "string" && o.dueDate ? o.dueDate : null };
+          })
+          .filter((x) => x.amountEgp > 0)
+      : undefined;
     const po = await invoicePurchaseOrder(
       id,
       {
         advanceEgp: num(body.advanceEgp),
         advanceMethod: str(body.advanceMethod) || "cash",
+        installments: installments && installments.length > 0 ? installments : undefined,
         installmentCount: num(body.installmentCount) || undefined,
         dueDate: str(body.dueDate) || null,
         firstDueDate: str(body.firstDueDate) || null,
