@@ -118,6 +118,8 @@ function Quotations({ products, priceBySlug, initial }: { products: ProductOpt[]
   );
 }
 
+interface OutreachResult { subject: string; body: string; html: string; ai: boolean }
+
 function Outreach() {
   const KINDS: { id: string; label: string }[] = [
     { id: "intro", label: "Introduction" }, { id: "followup", label: "Follow-up" },
@@ -126,42 +128,80 @@ function Outreach() {
   const [kind, setKind] = useState("intro");
   const [customer, setCustomer] = useState("");
   const [context, setContext] = useState("");
-  const [out, setOut] = useState<{ subject: string; body: string } | null>(null);
+  const [signature, setSignature] = useState("");
+  const [out, setOut] = useState<OutreachResult | null>(null);
   const [busy, setBusy] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<"" | "email" | "text">("");
 
   async function gen(personalize: boolean) {
     setBusy(true);
     try {
       const res = await fetch("/api/admin/outreach", { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ kind, customerName: customer, context, personalize }) });
-      if (res.ok) setOut((await res.json()) as { subject: string; body: string });
+        body: JSON.stringify({ kind, customerName: customer, context, signature, personalize }) });
+      if (res.ok) setOut((await res.json()) as OutreachResult);
     } finally { setBusy(false); }
+  }
+
+  async function copyFormatted() {
+    if (!out) return;
+    try {
+      // Rich HTML + plain-text fallback, so pasting into Gmail/Outlook keeps the
+      // logo band and brand styling.
+      const item = new ClipboardItem({
+        "text/html": new Blob([out.html], { type: "text/html" }),
+        "text/plain": new Blob([out.body], { type: "text/plain" }),
+      });
+      await navigator.clipboard.write([item]);
+    } catch {
+      await navigator.clipboard.writeText(out.body); // fallback for older browsers
+    }
+    setCopied("email"); setTimeout(() => setCopied(""), 1500);
+  }
+
+  async function copyText() {
+    if (!out) return;
+    await navigator.clipboard.writeText(`Subject: ${out.subject}\n\n${out.body}`);
+    setCopied("text"); setTimeout(() => setCopied(""), 1500);
   }
 
   return (
     <div>
-      <p className="mb-3 text-sm text-[#5E6B4F]">Outreach templates to help the sales team. Fill the customer and (optionally) personalise with AI.</p>
+      <p className="mb-3 text-sm text-[#5E6B4F]">Branded outreach emails (real logo &amp; brand colours). Fill the customer, add your signature, and optionally personalise with AI.</p>
       <div className="mb-3 flex flex-wrap gap-2">
         {KINDS.map((k) => (
           <button key={k.id} onClick={() => setKind(k.id)} className={kind === k.id ? primaryBtn : subtleBtn}>{k.label}</button>
         ))}
       </div>
       <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <input className={inputCls} placeholder="Customer / contact name" value={customer} onChange={(e) => setCustomer(e.target.value)} />
-        <input className={inputCls} placeholder="Context for AI (optional)" value={context} onChange={(e) => setContext(e.target.value)} />
+        <div>
+          <label className="mb-1 block text-[11px] font-medium uppercase tracking-[0.06em] text-[#5E6B4F]">Customer / contact name</label>
+          <input className={inputCls} placeholder="e.g. Eng. Hany Sadek" value={customer} onChange={(e) => setCustomer(e.target.value)} />
+        </div>
+        <div>
+          <label className="mb-1 block text-[11px] font-medium uppercase tracking-[0.06em] text-[#5E6B4F]">Your signature</label>
+          <input className={inputCls} placeholder="Your name · title (e.g. Omar — Sales)" value={signature} onChange={(e) => setSignature(e.target.value)} />
+        </div>
+        <div className="sm:col-span-2">
+          <label className="mb-1 block text-[11px] font-medium uppercase tracking-[0.06em] text-[#5E6B4F]">Context for AI (optional)</label>
+          <input className={inputCls} placeholder="e.g. met at the Cairo filtration expo; needs 0.22µm cartridges" value={context} onChange={(e) => setContext(e.target.value)} />
+        </div>
       </div>
       <div className="flex gap-2">
         <button className={subtleBtn} disabled={busy} onClick={() => void gen(false)}>Use template</button>
         <button className={primaryBtn} disabled={busy} onClick={() => void gen(true)}>{busy ? "Working…" : "Personalise with AI"}</button>
       </div>
       {out && (
-        <div className="mt-4 rounded-2xl border border-[#38492E]/10 bg-white px-4 py-3">
-          <p className="text-sm font-medium text-[#38492E]">Subject: {out.subject}</p>
-          <pre className="mt-2 whitespace-pre-wrap font-sans text-sm text-[#38492E]">{out.body}</pre>
-          <button className={`${subtleBtn} mt-3`} onClick={async () => { await navigator.clipboard.writeText(`Subject: ${out.subject}\n\n${out.body}`); setCopied(true); setTimeout(() => setCopied(false), 1500); }}>
-            {copied ? "Copied!" : "Copy"}
-          </button>
+        <div className="mt-4 rounded-2xl border border-[#38492E]/10 bg-white p-4">
+          <p className="text-sm font-medium text-[#38492E]">Subject: {out.subject}{out.ai && <span className="ml-2 rounded-full bg-[#357F75]/15 px-2 py-0.5 text-xs text-[#2A6A61]">AI</span>}</p>
+          <p className="mt-1 mb-2 text-[11px] uppercase tracking-[0.06em] text-[#5E6B4F]">Branded email preview</p>
+          <div className="overflow-hidden rounded-xl border border-[#38492E]/10">
+            <iframe title="Branded email preview" srcDoc={out.html} className="h-[460px] w-full bg-white" />
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button className={primaryBtn} onClick={() => void copyFormatted()}>{copied === "email" ? "Copied!" : "Copy branded email"}</button>
+            <button className={subtleBtn} onClick={() => void copyText()}>{copied === "text" ? "Copied!" : "Copy plain text"}</button>
+          </div>
+          <p className="mt-2 text-xs text-[#5E6B4F]">“Copy branded email” pastes the logo &amp; colours straight into Gmail or Outlook.</p>
         </div>
       )}
     </div>

@@ -38,12 +38,19 @@ export function brandedEmailHtml(options: BrandedEmailOptions): string {
   const { heading, contentHtml, belowCardHtml } = options;
   return `<!DOCTYPE html>
 <html>
+<head><meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" /></head>
 <body style="margin:0;padding:0;background-color:#F4EFE7;font-family:Georgia,'Times New Roman',serif;">
   <div style="max-width:560px;margin:0 auto;padding:32px 16px;">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;width:100%;">
       <tr>
-        <td align="center" bgcolor="#100D0B" style="background-color:#100D0B;padding:26px 24px;border-radius:16px 16px 0 0;">
-          <img src="https://www.fayekabrasives.com/assets/logo-light.png?v=6" width="210" alt="${BRAND_NAME}" style="display:block;width:210px;max-width:72%;height:auto;border:0;margin:0 auto;" />
+        <td align="center" bgcolor="#100D0B" style="background-color:#100D0B;padding:24px;border-radius:16px 16px 0 0;">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;">
+            <tr>
+              <td align="center" bgcolor="#FFFFFF" style="background-color:#FFFFFF;padding:12px 20px;border-radius:12px;">
+                <img src="https://www.fayekabrasives.com/assets/images/logo.jpg" width="86" alt="${BRAND_NAME}" style="display:block;width:86px;height:auto;border:0;margin:0 auto;" />
+              </td>
+            </tr>
+          </table>
         </td>
       </tr>
     </table>
