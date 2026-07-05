@@ -10,14 +10,18 @@ import PDFDocument from "pdfkit";
  *   (fetched from the live site, falling back to public/logo.png,
  *   falling back to a typeset wordmark).
  * - "Earthen Calm" palette: #3A332C ink, #847866 muted, #E5DCCB hairlines.
- * - EMBEDDED fonts (src/assets/fonts, OFL-licensed ParaType faces, full
- *   Latin + Cyrillic coverage — Russian renders natively):
+ * - EMBEDDED fonts (src/assets/fonts, all OFL-licensed):
  *   · PT Sans (regular/bold) for the letter-spaced uppercase headings and
- *     captions (clean sans in the spirit of the site's Tenor Sans),
- *   · PT Serif for body text (the elegant serif voice of the brand).
- *   The PDFDocument is created with `font: null` so pdfkit never touches
- *   its built-in AFM fonts — only the embedded TTFs ship to serverless
- *   (see outputFileTracingIncludes in next.config.ts).
+ *     captions (Latin + Cyrillic),
+ *   · PT Serif for Latin body text (the elegant serif voice of the brand),
+ *   · Amiri (regular/bold) for ARABIC — pdfkit/fontkit 2.x shapes the cursive
+ *     joins and RTL-orders the text natively when the run is drawn in Amiri.
+ *   Any run containing Arabic (see `hasArabic`) is routed to Amiri, right-
+ *   aligned, with letter-spacing and the Latin ligature-disable map removed
+ *   (both would sever the Arabic joins). The PDFDocument is created with
+ *   `font: null` so pdfkit never touches its built-in AFM fonts — only the
+ *   embedded TTFs ship to serverless (see outputFileTracingIncludes in
+ *   next.config.ts).
  *
  * Body text is "markdownish": blank lines split paragraphs, `# `/`## ` lines
  * become headings, `- `/`* ` lines become bullets. Everything else renders
@@ -96,7 +100,7 @@ function makeSanitizer(onStrip: () => void): (text: string) => string {
       .replace(/[\u2019\u02bc]/g, "\u2019") // apostrophe variants → right single quote
       // Outside the embedded fonts' repertoire → drop (and flag below).
       .replace(
-        /[^\x20-\x7E\n\t\u00a1-\u00ff\u0100-\u017f\u0400-\u04ff\u2013\u2014\u2018\u2019\u201a\u201c\u201d\u201e\u00ab\u00bb\u2026\u00b7\u2116\u20ac\u20bd]/g,
+        /[^\x20-\x7E\n\t\u00a1-\u00ff\u0100-\u017f\u0400-\u04ff\u0600-\u06ff\u0750-\u077f\u08a0-\u08ff\ufb50-\ufdff\ufe70-\ufeff\u2013\u2014\u2018\u2019\u201a\u201c\u201d\u201e\u00ab\u00bb\u2026\u00b7\u2116\u20ac\u20bd]/g,
         ""
       );
     if (safe.replace(/\s/g, "").length < text.replace(/\s/g, "").length) {
@@ -113,8 +117,24 @@ const FONT_FILES = {
   Sans: "PT_Sans-Web-Regular.ttf",
   "Sans-Bold": "PT_Sans-Web-Bold.ttf",
   Serif: "PT_Serif-Web-Regular.ttf",
+  // Amiri (OFL) — Arabic Naskh with full shaping tables. pdfkit/fontkit 2.x
+  // shapes and RTL-orders Arabic natively when the run is drawn in this font.
+  Arabic: "Amiri-Regular.ttf",
+  "Arabic-Bold": "Amiri-Bold.ttf",
 } as const;
 type FontName = keyof typeof FONT_FILES;
+
+/**
+ * Does the text contain Arabic script? Arabic runs must be drawn in the Amiri
+ * font, right-aligned, WITHOUT characterSpacing (letter-spacing severs the
+ * cursive joins) and WITHOUT the Latin ligature-disable map (Arabic needs its
+ * default shaping features on). The PT fonts have no Arabic glyphs.
+ */
+const ARABIC_RE =
+  /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
+function hasArabic(text: string): boolean {
+  return ARABIC_RE.test(text);
+}
 
 /** Font bytes survive across warm invocations — read once per process. */
 let fontCache: Record<FontName, Buffer> | null = null;
@@ -179,6 +199,8 @@ export async function renderLetterheadPdf(
   doc.registerFont("Sans", fonts.Sans);
   doc.registerFont("Sans-Bold", fonts["Sans-Bold"]);
   doc.registerFont("Serif", fonts.Serif);
+  doc.registerFont("Arabic", fonts.Arabic);
+  doc.registerFont("Arabic-Bold", fonts["Arabic-Bold"]);
 
   const chunks: Buffer[] = [];
   doc.on("data", (c: Buffer) => chunks.push(c));
@@ -261,24 +283,31 @@ export async function renderLetterheadPdf(
       features: NO_LIGATURES,
     });
   doc.moveDown(0.6);
+  const titleText = sanitize(input.title);
+  const titleAr = hasArabic(titleText);
   doc
-    .font("Sans")
+    .font(titleAr ? "Arabic" : "Sans")
     .fontSize(20)
     .fillColor(INK)
-    .text(sanitize(input.title).toUpperCase(), {
+    .text(titleAr ? titleText : titleText.toUpperCase(), {
       width: contentWidth,
-      characterSpacing: 1.6,
+      align: titleAr ? "right" : "left",
+      characterSpacing: titleAr ? 0 : 1.6,
       lineGap: 4,
-      features: NO_LIGATURES,
+      ...(titleAr ? {} : { features: NO_LIGATURES }),
     });
   doc.moveDown(0.5);
   doc.font("Sans").fontSize(10).fillColor(MUTED);
   doc.text(sanitize(dateLine), { width: contentWidth, features: NO_LIGATURES });
   if (input.recipient) {
-    doc.text(sanitize(`To: ${input.recipient}`), {
+    const rcpt = sanitize(`To: ${input.recipient}`);
+    const rcptAr = hasArabic(rcpt);
+    doc.font(rcptAr ? "Arabic" : "Sans").text(rcpt, {
       width: contentWidth,
-      features: NO_LIGATURES,
+      align: rcptAr ? "right" : "left",
+      ...(rcptAr ? { characterSpacing: 0 } : { features: NO_LIGATURES }),
     });
+    doc.font("Sans");
   }
   doc.moveDown(0.4);
   const ruleY = doc.y;
@@ -299,38 +328,44 @@ export async function renderLetterheadPdf(
       const heading = /^#{1,3}\s+(.*)$/.exec(trimmed);
       const bullet = /^[-*]\s+(.*)$/.exec(trimmed);
       if (heading) {
+        const h = heading[1];
+        const hAr = hasArabic(h);
         doc.moveDown(0.6);
         doc
-          .font("Sans-Bold")
-          .fontSize(12)
+          .font(hAr ? "Arabic-Bold" : "Sans-Bold")
+          .fontSize(hAr ? 14 : 12)
           .fillColor(INK)
-          .text(heading[1].toUpperCase(), {
+          .text(hAr ? h : h.toUpperCase(), {
             width: contentWidth,
-            characterSpacing: 1.4,
+            align: hAr ? "right" : "left",
+            characterSpacing: hAr ? 0 : 1.4,
             lineGap: 3,
-            features: NO_LIGATURES,
+            ...(hAr ? {} : { features: NO_LIGATURES }),
           });
         doc.moveDown(0.2);
       } else if (bullet) {
+        const bAr = hasArabic(bullet[1]);
         doc
-          .font("Serif")
-          .fontSize(11.5)
+          .font(bAr ? "Arabic" : "Serif")
+          .fontSize(bAr ? 13 : 11.5)
           .fillColor(INK)
           .text(`·  ${bullet[1]}`, {
-            width: contentWidth - 14,
-            indent: 14,
+            width: bAr ? contentWidth : contentWidth - 14,
+            align: bAr ? "right" : "left",
+            ...(bAr ? { characterSpacing: 0 } : { indent: 14, features: NO_LIGATURES }),
             lineGap: 4,
-            features: NO_LIGATURES,
           });
       } else {
+        const pAr = hasArabic(trimmed);
         doc
-          .font("Serif")
-          .fontSize(11.5)
+          .font(pAr ? "Arabic" : "Serif")
+          .fontSize(pAr ? 13 : 11.5)
           .fillColor(INK)
           .text(trimmed, {
             width: contentWidth,
+            align: pAr ? "right" : "left",
             lineGap: 5,
-            features: NO_LIGATURES,
+            ...(pAr ? { characterSpacing: 0 } : { features: NO_LIGATURES }),
           });
       }
     }
