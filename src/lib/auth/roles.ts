@@ -47,6 +47,11 @@ export const PERMISSIONS = {
   // Orders / POS
   "orders.view": ["owner", "admin", "sales"],
   "pos.sell": ["owner", "admin", "sales"],
+  // Sales: quotations + purchase orders + outreach
+  "sales.quote": ["owner", "admin", "sales"],
+  "sales.po.create": ["owner", "admin", "sales"],
+  "sales.po.process": ["owner", "admin"], // invoice / fulfil open POs
+  "outreach.use": ["owner", "admin", "sales"],
   // Customers
   "customers.directory": ["owner", "admin", "sales"], // search/select + create
   "customers.account": ["owner", "admin"], // finance history, credit, notes
@@ -71,6 +76,7 @@ export function can(role: Role | null | undefined, cap: Capability): boolean {
 /** The tabs each role may open in /admin (drives nav + server-side gating). */
 export const TAB_ACCESS: Record<string, Role[]> = {
   orders: ["owner", "admin", "sales"],
+  sales: ["owner", "admin", "sales"], // quotations, POs, outreach
   inventory: ["owner", "admin", "inventory", "sales"], // sales sees read-only
   finance: ["owner", "admin"],
   // Customers (companies): sales gets the directory view; owner/admin get the

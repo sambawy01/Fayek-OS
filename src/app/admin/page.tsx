@@ -17,6 +17,12 @@ import {
   type InventoryReport,
   type ReceivablesReport,
 } from "@/lib/reports";
+import {
+  listQuotations,
+  listPurchaseOrders,
+  type Quotation,
+  type PurchaseOrder,
+} from "@/lib/sales";
 import AdminTabs, { type AdminTab } from "./admin-tabs";
 import SignOut from "./sign-out";
 import OrdersSection from "./orders-section";
@@ -27,6 +33,8 @@ import ReceivablesSection from "./receivables-section";
 import ReceivingSection from "./receiving-section";
 import ApprovalsSection from "./approvals-section";
 import ReportsSection from "./reports-section";
+import SalesSection from "./sales-section";
+import OpenPOsSection from "./open-pos-section";
 import UsersSection, { type AdminUser } from "./users-section";
 
 export const dynamic = "force-dynamic";
@@ -102,10 +110,12 @@ export default async function AdminPage() {
       err = LOAD_ERR("the finance ledger");
     }
     let receivables: Receivable[] = [];
+    let openPOs: PurchaseOrder[] = [];
     try {
       receivables = await listReceivables(false);
+      openPOs = await listPurchaseOrders(true);
     } catch (e) {
-      console.error("receivables load:", e);
+      console.error("receivables/PO load:", e);
     }
     tabs.push({
       id: "finance",
@@ -113,6 +123,7 @@ export default async function AdminPage() {
       node: (
         <>
           <FinanceSection initialPnl={pnl} adminKey={clientKey} loadError={err} />
+          <OpenPOsSection initialOpen={openPOs} />
           <ReceivablesSection initialReceivables={receivables} />
         </>
       ),
@@ -134,6 +145,35 @@ export default async function AdminPage() {
         <CustomersSection
           initialCompanies={companies}
           canAccount={can(role, "customers.account")}
+        />
+      ),
+    });
+  }
+
+  // --- Sales (quotations, purchase orders, outreach) --------------------------
+  if (TAB_ACCESS.sales.includes(role)) {
+    let quotations: Quotation[] = [];
+    let pos: PurchaseOrder[] = [];
+    let productOptions: { slug: string; name: string }[] = [];
+    let priceBySlug: Record<string, number> = {};
+    try {
+      const catalog = await getCatalog();
+      productOptions = catalog.filter((p) => p.active).map((p) => ({ slug: p.slug, name: p.en.name }));
+      priceBySlug = Object.fromEntries(catalog.map((p) => [p.slug, p.priceEgp]));
+      quotations = await listQuotations();
+      pos = await listPurchaseOrders(false);
+    } catch (e) {
+      console.error("sales load:", e);
+    }
+    tabs.push({
+      id: "sales",
+      label: "Sales",
+      node: (
+        <SalesSection
+          products={productOptions}
+          priceBySlug={priceBySlug}
+          initialQuotations={quotations}
+          initialPOs={pos}
         />
       ),
     });

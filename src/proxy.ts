@@ -17,6 +17,9 @@ const API_GUARDS: { prefix: string; cap: Capability }[] = [
   { prefix: "/api/admin/batches", cap: "batches.view" },
   { prefix: "/api/admin/approvals", cap: "approvals.resolve" },
   { prefix: "/api/admin/reports", cap: "reports.view" },
+  { prefix: "/api/admin/quotations", cap: "sales.quote" },
+  { prefix: "/api/admin/purchase-orders", cap: "sales.po.create" },
+  { prefix: "/api/admin/outreach", cap: "outreach.use" },
 ];
 
 /**
