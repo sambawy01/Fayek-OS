@@ -14,7 +14,7 @@ import type { StoredOrder } from "../orders";
 /**
  * Proactive Telegram pushes to the bound owner chat: new shop orders and
  * low-stock alerts — each with one-tap action buttons where it makes sense.
- * (The original studio also pushed booking requests; Fayek OS has no
+ * (The original studio also pushed booking requests; Fayek Abrasives has no
  * bookings, so those pushes were removed.)
  *
  * Contract (every export):

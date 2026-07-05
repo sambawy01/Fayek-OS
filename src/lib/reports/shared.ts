@@ -24,9 +24,9 @@ import { sendMessage, telegramConfigured } from "../telegram";
  */
 
 const CAIRO_TZ = "Africa/Cairo";
-const NOTIFY_EMAIL_DEFAULT = "hello@fayek-os.example.com";
+const NOTIFY_EMAIL_DEFAULT = "info@ftc-eg.com";
 const EMAIL_FROM =
-  "Fayek OS <orders@fayek-os.example.com>";
+  "Fayek Abrasives <orders@ftc-eg.com>";
 
 // --- cron route guards ---------------------------------------------------------
 

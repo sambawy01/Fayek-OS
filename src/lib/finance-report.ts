@@ -12,7 +12,7 @@ import {
  * Profit & Loss for the shop — the period-agnostic engine behind the admin
  * Finance tab, the CSV/PDF exports, the assistant's finance_summary tool, and
  * the monthly P&L cron. (The original studio P&L also counted treatment
- * revenue from Cal bookings; Fayek OS is a pure shop.)
+ * revenue from Cal bookings; Fayek Abrasives is a pure shop.)
  *
  * THE NO-DOUBLE-ENTRY MODEL (deliberate — see @/lib/finance):
  *   REVENUE  = shop order revenue (live, from the order store)

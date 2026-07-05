@@ -17,7 +17,7 @@ import type { Product } from "@/lib/catalog";
  * Authorization header to these same-origin fetches automatically.
  */
 
-const SITE_BASE = "https://fayek-os.example.com/";
+const SITE_BASE = "https://www.fayekabrasives.com/";
 
 /* ---------- helpers ---------- */
 

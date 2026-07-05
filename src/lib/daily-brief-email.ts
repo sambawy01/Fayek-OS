@@ -8,7 +8,7 @@ import type { StoredOrder } from "./orders";
  * - "Shop orders needing action": orders still in ordered/confirmed status.
  *
  * (The original studio brief also listed appointments, pending booking
- * requests and a re-booking radar. Fayek OS is a pure shop, so the brief
+ * requests and a re-booking radar. Fayek Abrasives is a pure shop, so the brief
  * is now order-centric.)
  *
  * Sent even when everything is empty ("All caught up — no orders waiting.") so
@@ -19,9 +19,9 @@ import type { StoredOrder } from "./orders";
  * are PLACEHOLDERS — set the real domain/address once supplied.
  */
 
-const NOTIFY_EMAIL_DEFAULT = "hello@fayek-os.example.com";
-const ADMIN_URL_BASE = "https://fayek-os.example.com/admin";
-const EMAIL_FROM = "Fayek OS <orders@fayek-os.example.com>";
+const NOTIFY_EMAIL_DEFAULT = "info@ftc-eg.com";
+const ADMIN_URL_BASE = "https://www.fayekabrasives.com/admin";
+const EMAIL_FROM = "Fayek Abrasives <orders@ftc-eg.com>";
 const CAIRO_TZ = "Africa/Cairo";
 
 // --- Cairo time helpers ------------------------------------------------------

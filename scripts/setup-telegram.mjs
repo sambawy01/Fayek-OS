@@ -29,7 +29,7 @@ import { fileURLToPath } from "node:url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const WEBHOOK_URL =
-  "https://shop.fayek-os.example.com/api/telegram/webhook";
+  "https://shop.www.fayekabrasives.com/api/telegram/webhook";
 
 // --- env ---------------------------------------------------------------------
 function loadEnvLocal() {

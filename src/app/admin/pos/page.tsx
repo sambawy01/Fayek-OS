@@ -7,7 +7,7 @@ import PosClient from "./pos-client";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Store POS — Fayek OS",
+  title: "Store POS — Fayek Abrasives",
   robots: { index: false, follow: false },
 };
 

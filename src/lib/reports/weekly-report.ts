@@ -6,7 +6,7 @@ import { cairoSubjectDate, cairoWeekdayNow, type CairoWeekday } from "./shared";
 /**
  * The owner's Sunday-18:00-Cairo weekly report (/api/cron/weekly-report):
  * this week vs last week across shop orders. (The original studio report also
- * tracked bookings/treatments; Fayek OS is a pure shop.)
+ * tracked bookings/treatments; Fayek Abrasives is a pure shop.)
  *
  * WEEK DEFINITION: Cairo calendar weeks, Monday through Sunday. Everything is
  * bucketed by its Africa/Cairo calendar date (cairoDateKey) so the boundaries

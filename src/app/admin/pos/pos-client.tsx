@@ -3,7 +3,7 @@
 import { useState, type ChangeEvent } from "react";
 import type { Product } from "@/lib/catalog";
 
-const SITE_BASE = "https://fayek-os.example.com/";
+const SITE_BASE = "https://www.fayekabrasives.com/";
 function photoSrc(photo: string): string {
   if (!photo) return "";
   return /^https?:\/\//i.test(photo) ? photo : SITE_BASE + photo;
@@ -227,7 +227,7 @@ export default function PosClient({
     <main className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6">
       <header className="mb-5 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <span className="font-serif text-lg text-[#38492E]">Fayek OS</span>
+          <span className="font-serif text-lg text-[#38492E]">Fayek Abrasives</span>
           <h1 className="font-serif text-2xl text-[#38492E]">Store POS</h1>
         </div>
         <a href="/admin" className="text-sm text-[#357F75] underline">

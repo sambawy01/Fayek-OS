@@ -195,7 +195,7 @@ function safeEqual(a: string, b: string): boolean {
 
 const REFUSAL =
   "Hi! I'm Fayek — the owner's private assistant, so this chat is members-only. " +
-  "To shop our products, visit fayek-os.example.com — see you there!";
+  "To shop our products, visit www.fayekabrasives.com — see you there!";
 
 // Shown ONLY in the pre-binding window (no owner bound yet) for a BARE `/start`
 // with no access-phrase token — a legitimate the owner who simply doesn't know

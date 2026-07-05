@@ -145,7 +145,7 @@ interface VisionExtraction {
 }
 
 function buildVisionPrompt(): string {
-  return `You are the image-triage and extraction step for Fayek, the private ops assistant for Fayek OS — handmade products — in Egypt. You receive ONE image plus an optional caption from the owner. Classify it and extract structured data. Respond with ONLY a single JSON object — no prose, no markdown fences.
+  return `You are the image-triage and extraction step for Fayek, the private ops assistant for Fayek Abrasives — an industrial abrasives and filtration supplier — in Cairo, Egypt. You receive ONE image plus an optional caption from the owner. Classify it and extract structured data. Respond with ONLY a single JSON object — no prose, no markdown fences.
 
 Choose exactly one "kind":
 - "receipt": a receipt, invoice or proof of a business expense/purchase.

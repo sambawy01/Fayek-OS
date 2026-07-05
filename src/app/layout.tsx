@@ -15,9 +15,9 @@ const manrope = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: "Fayek OS",
+  title: "Fayek Abrasives",
   description:
-    "Fayek OS — handmade products from Egypt. Shop and concierge.",
+    "Fayek Abrasives — industrial abrasives & filtration supplier, Cairo, Egypt (since 1997). Operations back-office.",
 };
 
 export default function RootLayout({

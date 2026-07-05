@@ -4,8 +4,8 @@
  */
 
 const ALLOWED_ORIGINS = new Set([
-  "https://fayek-os.example.com",
-  "https://www.fayek-os.example.com",
+  "https://www.fayekabrasives.com",
+  "https://www.fayekabrasives.com",
   "https://sambawy01.github.io", // legacy URL, redirects to the domain
 ]);
 const LOCAL_ORIGIN_RE = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;

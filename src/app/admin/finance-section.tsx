@@ -35,7 +35,7 @@ const EXPENSE_CATEGORIES = [
 const INCOME_CATEGORIES = ["cash-sale", "gift-card", "other"] as const;
 const PAYMENT_METHODS = ["cash", "bank-transfer", "card", "other"] as const;
 
-const SITE_BASE = "https://fayek-os.example.com/";
+const SITE_BASE = "https://www.fayekabrasives.com/";
 
 /* ---------- helpers ---------- */
 

@@ -59,8 +59,8 @@ import {
 } from "./ollama-search";
 
 /**
- * The Fayek OS assistant's tool belt. (The original studio assistant
- * also managed Cal.com bookings; Fayek OS is a pure shop, so all
+ * The Fayek Abrasives assistant's tool belt. (The original studio assistant
+ * also managed Cal.com bookings; Fayek Abrasives is a pure shop, so all
  * booking/calendar tools were removed.)
  *
  * Two classes of tools:
@@ -180,7 +180,7 @@ export const TOOLS: OllamaTool[] = [
   ),
   tool(
     "email_send",
-    "Send a branded email from the Fayek OS shop address. Plain-text body. Emails to addresses other than the owner's own require button confirmation.",
+    "Send a branded email from the Fayek Abrasives shop address. Plain-text body. Emails to addresses other than the owner's own require button confirmation.",
     {
       to: { type: "string", description: "Recipient email address" },
       subject: { type: "string" },
@@ -463,7 +463,7 @@ const MUTATING_TOOLS = new Set([
 /** The owner's own addresses — email_send to these skips the confirm gate. */
 function ownerEmailAllowlist(): Set<string> {
   // PLACEHOLDER owner address — set NOTIFY_EMAIL to the real one (Track B).
-  const set = new Set<string>(["hello@fayek-os.example.com"]);
+  const set = new Set<string>(["info@ftc-eg.com"]);
   for (const addr of (process.env.NOTIFY_EMAIL || "").split(",")) {
     const a = addr.trim().toLowerCase();
     if (a) set.add(a);
@@ -692,7 +692,7 @@ export function describeMutation(
         `——— full message ———\n` +
         `${s("body")}\n` +
         `——————————————\n` +
-        `→ This exact email goes to ${s("to")} from the Fayek OS shop address.`
+        `→ This exact email goes to ${s("to")} from the Fayek Abrasives shop address.`
       );
     case "log_expense": {
       const amount = typeof args.amountEgp === "number" ? args.amountEgp : "?";
@@ -1094,9 +1094,9 @@ async function execEmailSend(args: Record<string, unknown>): Promise<string> {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      from: "Fayek OS <orders@fayek-os.example.com>",
+      from: "Fayek Abrasives <orders@ftc-eg.com>",
       to: [to],
-      reply_to: "hello@fayek-os.example.com",
+      reply_to: "info@ftc-eg.com",
       subject,
       text: body,
       html,

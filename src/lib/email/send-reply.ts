@@ -13,8 +13,8 @@ import { brandedEmailHtml, escapeHtml } from "../branded-email";
  *   can report the outcome as plain text.
  */
 
-const EMAIL_FROM = "Fayek OS <orders@fayek-os.example.com>";
-const REPLY_TO = "hello@fayek-os.example.com";
+const EMAIL_FROM = "Fayek Abrasives <orders@ftc-eg.com>";
+const REPLY_TO = "info@ftc-eg.com";
 
 export interface SendReplyInput {
   to: string;

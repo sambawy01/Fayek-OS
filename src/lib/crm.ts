@@ -6,7 +6,7 @@ import { orderRevenueEgp } from "./reports/weekly-report";
 import { listAllBlobPathnames, type BlobListPage } from "./finance";
 
 /**
- * CRM for Fayek OS — client profiles DERIVED from shop orders plus a small
+ * CRM for Fayek Abrasives — client profiles DERIVED from shop orders plus a small
  * STORED overlay for notes and tags. There are NO duplicate client records: a
  * profile is computed on demand by merging every order that resolves to the
  * same canonical identity, then merging in the per-client overlay.
@@ -42,7 +42,7 @@ import { listAllBlobPathnames, type BlobListPage } from "./finance";
  *   five) concurrent addNote calls — even on different serverless instances —
  *   can never clobber each other. A profile's notes are ASSEMBLED on read by
  *   listing the per-client notes prefix. This is the fix for the "silently
- *   loses Fayek OS's notes" race the single-document overlay had.
+ *   loses Fayek Abrasives's notes" race the single-document overlay had.
  * - Read-error semantics match the ledger EXACTLY: a missing blob (fresh
  *   client) yields an EMPTY overlay; any transient read/list failure THROWS
  *   (never read as "no notes" by a writer); a corrupt blob THROWS (loud
@@ -221,7 +221,7 @@ export function toClientSummary(p: ClientProfile): ClientSummary {
 /**
  * An overlay (notes/tags) whose clientId resolves to NO current profile — e.g.
  * a phone-only client whose records aged out before they returned with an
- * email. Surfaced (never silently dropped) so Fayek OS can re-link or erase it.
+ * email. Surfaced (never silently dropped) so Fayek Abrasives can re-link or erase it.
  */
 export interface UnlinkedOverlay {
   clientId: string;
@@ -1011,7 +1011,7 @@ export function composeCheckInDraft(
   if (ru) {
     const hi = name ? `Здравствуйте, ${name}!` : "Здравствуйте!";
     return {
-      subject: "Кое-что новое для вас — Fayek OS",
+      subject: "Кое-что новое для вас — Fayek Abrasives",
       body: [
         hi,
         "",
@@ -1020,14 +1020,14 @@ export function composeCheckInDraft(
         "Ответьте на это письмо, если нужна помощь с выбором.",
         "",
         "С теплом,",
-        "Fayek OS",
+        "Fayek Abrasives",
       ].join("\n"),
     };
   }
 
   const hi = name ? `Hi ${name},` : "Hello,";
   return {
-    subject: "A little something new — Fayek OS",
+    subject: "A little something new — Fayek Abrasives",
     body: [
       hi,
       "",
@@ -1036,7 +1036,7 @@ export function composeCheckInDraft(
       "Have a browse whenever you like, and reply here if you'd like a hand choosing.",
       "",
       "Warmly,",
-      "Fayek OS",
+      "Fayek Abrasives",
     ].join("\n"),
   };
 }
@@ -1063,7 +1063,7 @@ export function composeClientDraft(
   if (intent === "thanks") {
     if (ru) {
       return {
-        subject: "Спасибо, что были у нас — Fayek OS",
+        subject: "Спасибо, что были у нас — Fayek Abrasives",
         body: [
           name ? `Здравствуйте, ${name}!` : "Здравствуйте!",
           "",
@@ -1071,22 +1071,22 @@ export function composeClientDraft(
           extra ? `\n${extra}` : "",
           "",
           "С теплом,",
-          "Fayek OS",
+          "Fayek Abrasives",
         ]
           .filter((l) => l !== "")
           .join("\n"),
       };
     }
     return {
-      subject: "Thank you from Fayek OS",
+      subject: "Thank you from Fayek Abrasives",
       body: [
         name ? `Hi ${name},` : "Hello,",
         "",
-        "Thank you for choosing Fayek OS — we hope you love your new product.",
+        "Thank you for choosing Fayek Abrasives — we hope you love your new product.",
         extra ? `\n${extra}` : "",
         "",
         "Warmly,",
-        "Fayek OS",
+        "Fayek Abrasives",
       ]
         .filter((l) => l !== "")
         .join("\n"),
@@ -1096,26 +1096,26 @@ export function composeClientDraft(
   // reply / custom — frame the owner's message in the branded voice.
   if (ru) {
     return {
-      subject: "Сообщение от Fayek OS",
+      subject: "Сообщение от Fayek Abrasives",
       body: [
         name ? `Здравствуйте, ${name}!` : "Здравствуйте!",
         "",
         extra || "(добавьте текст сообщения)",
         "",
         "С теплом,",
-        "Fayek OS",
+        "Fayek Abrasives",
       ].join("\n"),
     };
   }
   return {
-    subject: "A message from Fayek OS",
+    subject: "A message from Fayek Abrasives",
     body: [
       name ? `Hi ${name},` : "Hello,",
       "",
       extra || "(add your message here)",
       "",
       "Warmly,",
-      "Fayek OS",
+      "Fayek Abrasives",
     ].join("\n"),
   };
 }

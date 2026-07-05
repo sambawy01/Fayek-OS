@@ -1,4 +1,4 @@
-# Fayek OS
+# Fayek Abrasives
 
 Store back-office (admin only, no storefront): orders, inventory, finance/P&L,
 POS, CRM, plus a Telegram owner-bot, cron reports, and inbound-email triage.

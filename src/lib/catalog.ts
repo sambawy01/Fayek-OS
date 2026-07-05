@@ -6,15 +6,15 @@ import { SHOP_PRODUCTS } from "./shop-products";
  * Dynamic shop catalog on Vercel Blob (private store `vv-orders`).
  *
  * Layout: ONE JSON document at `catalog/products.json` holding the full
- * product array. The shop is tiny (a handful of products), so a single
- * read-modify-write document is simpler and safer than per-product blobs.
+ * product array (a few hundred line items), so a single read-modify-write
+ * document is simpler and safer than per-product blobs.
  *
  * Lifecycle:
  * - When the blob does not exist yet, `getCatalog()` returns SEED — the
- *   launch products from @/lib/shop-products (names/prices) merged with the
- *   marketing copy/photos that previously lived only in /shop.js. The
- *   blob is written lazily on the first admin save (or the first order
- *   decrement), so a fresh deployment works with zero setup.
+ *   catalog built from @/lib/shop-products (the imported company stock sheet:
+ *   codes, descriptions, prices and on-hand quantities). The blob is written
+ *   lazily on the first admin save (or the first order decrement), so a fresh
+ *   deployment works with zero setup.
  * - `effectiveSoldOut(p)` is the single sold-out rule: manual flag OR a
  *   tracked quantity that reached 0. `quantity: null` means "not tracked".
  * - Orders decrement quantities via read-modify-write. At this shop's
@@ -72,97 +72,28 @@ export const CATALOG_PATHNAME = "catalog/products.json";
 // --- Seed --------------------------------------------------------------------
 
 const SEED_TIMESTAMP = "2026-06-11T00:00:00.000Z";
-const SEED_QUANTITY = 20;
 
 /**
- * Neutral placeholder copy / photos for the sample products, keyed by the
- * slugs in @/lib/shop-products (the SEED source of truth for slugs/names/
- * prices). EGP-only by default: the RU strings mirror the EN ones. Replace
- * these from /admin — the seed is only used until the catalog blob exists.
+ * The seed catalog is built directly from @/lib/shop-products — one Product per
+ * line item in the company stock sheet, carrying its real on-hand quantity and
+ * its code as the name/SKU. The full sheet text is the description; `sub` is
+ * left empty and the owner can enrich copy/photos from /admin. Single-currency
+ * (EGP): the RU strings mirror the EN ones and priceRub stays 0.
  */
-const SEED_COPY: Record<
-  string,
-  { sub: { en: string; ru: string }; desc: { en: string; ru: string }; photo: string; alt: { en: string; ru: string } }
-> = {
-  "sample-product-a": {
-    sub: { en: "Sample product · replace me", ru: "Sample product · replace me" },
-    desc: {
-      en: "A placeholder product so the catalog renders on a fresh deployment. Edit or delete it from /admin and add your own.",
-      ru: "A placeholder product so the catalog renders on a fresh deployment. Edit or delete it from /admin and add your own.",
-    },
-    photo: "",
-    alt: { en: "Sample product A", ru: "Sample product A" },
-  },
-  "sample-product-b": {
-    sub: { en: "Sample product · replace me", ru: "Sample product · replace me" },
-    desc: {
-      en: "A placeholder product so the catalog renders on a fresh deployment. Edit or delete it from /admin and add your own.",
-      ru: "A placeholder product so the catalog renders on a fresh deployment. Edit or delete it from /admin and add your own.",
-    },
-    photo: "",
-    alt: { en: "Sample product B", ru: "Sample product B" },
-  },
-  "sample-product-c": {
-    sub: { en: "Sample product · replace me", ru: "Sample product · replace me" },
-    desc: {
-      en: "A placeholder product so the catalog renders on a fresh deployment. Edit or delete it from /admin and add your own.",
-      ru: "A placeholder product so the catalog renders on a fresh deployment. Edit or delete it from /admin and add your own.",
-    },
-    photo: "",
-    alt: { en: "Sample product C", ru: "Sample product C" },
-  },
-};
-
-/**
- * Usage / care notes, surfaced to the AI concierge and the public API so a
- * customer can be told how to use what they bought. Editable per-product in
- * /admin.
- */
-const DEFAULT_USAGE = {
-  en: "Add usage or care directions for this product from /admin.",
-  ru: "Add usage or care directions for this product from /admin.",
-};
-
-const SEED_USAGE: Record<string, { en: string; ru: string }> = {
-  "sample-product-a": DEFAULT_USAGE,
-  "sample-product-b": DEFAULT_USAGE,
-  "sample-product-c": DEFAULT_USAGE,
-};
-
-/** Short names for the catalog (the descriptive suffix lives in `sub`). */
-const SEED_SHORT_NAMES: Record<string, { en: string; ru: string }> = {
-  "sample-product-a": { en: "Sample Product A", ru: "Sample Product A" },
-  "sample-product-b": { en: "Sample Product B", ru: "Sample Product B" },
-  "sample-product-c": { en: "Sample Product C", ru: "Sample Product C" },
-};
-
-export const SEED: readonly Product[] = SHOP_PRODUCTS.map((p) => {
-  const copy = SEED_COPY[p.slug];
-  const names = SEED_SHORT_NAMES[p.slug];
-  return {
-    slug: p.slug,
-    en: {
-      name: names?.en ?? p.nameEn,
-      sub: copy?.sub.en ?? "",
-      desc: copy?.desc.en ?? "",
-    },
-    ru: {
-      name: names?.ru ?? p.nameRu,
-      sub: copy?.sub.ru ?? "",
-      desc: copy?.desc.ru ?? "",
-    },
-    priceEgp: p.priceEgp,
-    priceRub: p.priceRub,
-    photo: copy?.photo ?? "",
-    alt: copy?.alt ?? { en: "", ru: "" },
-    ...(SEED_USAGE[p.slug] ? { usage: SEED_USAGE[p.slug] } : {}),
-    quantity: SEED_QUANTITY,
-    soldOut: false,
-    active: true,
-    createdAt: SEED_TIMESTAMP,
-    updatedAt: SEED_TIMESTAMP,
-  };
-});
+export const SEED: readonly Product[] = SHOP_PRODUCTS.map((p) => ({
+  slug: p.slug,
+  en: { name: p.nameEn, sub: "", desc: p.descEn },
+  ru: { name: p.nameRu, sub: "", desc: p.descEn },
+  priceEgp: p.priceEgp,
+  priceRub: p.priceRub,
+  photo: "",
+  alt: { en: p.nameEn, ru: p.nameRu },
+  quantity: p.quantity,
+  soldOut: false,
+  active: true,
+  createdAt: SEED_TIMESTAMP,
+  updatedAt: SEED_TIMESTAMP,
+}));
 
 function cloneSeed(): Product[] {
   return SEED.map((p) => ({

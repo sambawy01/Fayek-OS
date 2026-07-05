@@ -27,10 +27,10 @@ import PDFDocument from "pdfkit";
  * fonts' repertoire (emoji, CJK, …) had to be removed so the tool can warn.
  */
 
-const LOGO_URL = "https://fayek-os.example.com/assets/logo-light.png?v=6";
-const BRAND_NAME = "FAYEK OS";
+const LOGO_URL = "https://www.fayekabrasives.com/assets/logo-light.png?v=6";
+const BRAND_NAME = "FAYEK ABRASIVES";
 const FOOTER_TEXT =
-  "fayek-os.example.com  ·  hello@fayek-os.example.com";
+  "www.fayekabrasives.com  ·  info@ftc-eg.com  ·  +20 2 2415 6092";
 
 const INK = "#3A332C";
 const MUTED = "#847866";
@@ -174,7 +174,7 @@ export async function renderLetterheadPdf(
     // use the embedded TTFs registered below. (Types say string; runtime
     // accepts null by design: initFonts(defaultFont) no-ops on falsy.)
     font: null as unknown as string,
-    info: { Title: input.title, Author: "Fayek OS" },
+    info: { Title: input.title, Author: "Fayek Abrasives" },
   });
   doc.registerFont("Sans", fonts.Sans);
   doc.registerFont("Sans-Bold", fonts["Sans-Bold"]);
@@ -349,7 +349,7 @@ export async function renderLetterheadPdf(
     .font("Sans")
     .fontSize(10)
     .fillColor(MUTED)
-    .text("FAYEK OS", {
+    .text("FAYEK ABRASIVES", {
       width: contentWidth,
       characterSpacing: 1.8,
       features: NO_LIGATURES,

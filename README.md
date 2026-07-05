@@ -1,12 +1,17 @@
-# Fayek OS
+# Fayek Abrasives
 
-The **back-office / operations platform** for a small retail store — finance,
-inventory, point-of-sale, orders and CRM in one Next.js app. No storefront:
-this is the owner-facing admin only.
+The **back-office / operations platform** for **Fayek Abrasives (FTC)** — an
+industrial abrasives & filtration supplier in Cairo, Egypt (since 1997) —
+covering finance, inventory, point-of-sale, orders and CRM in one Next.js app.
+No storefront: this is the owner-facing admin only.
 
-It was extracted from the `justmanalized-platform` project (the storefront and
-its public order/product/concierge APIs were removed) and genericized into a
-reusable store back-office.
+The catalog is seeded from the company's own stock sheet (157 line items with
+real on-hand quantities). It was extracted from the `justmanalized-platform`
+project (the storefront and its public order/product/concierge APIs were
+removed) and customized for Fayek Abrasives.
+
+- **Web:** www.fayekabrasives.com · **Contact:** info@ftc-eg.com · +20 2 2415 6092
+- **Currency:** EGP · **Timezone:** Africa/Cairo
 
 ## What's inside
 
@@ -56,9 +61,14 @@ npm run dev                  # http://localhost:3000 -> redirects to /admin
 ```
 
 `/` redirects to `/admin`. With no `ADMIN_USER`/`ADMIN_PASS` set, admin is
-locked (fails closed). A missing catalog blob seeds three neutral **sample
-products** so the dashboard renders on a fresh deployment — edit or replace them
-from `/admin`.
+locked (fails closed). On a fresh deployment the catalog is seeded from the
+company stock sheet (`src/lib/shop-products.ts` — 157 items with real on-hand
+quantities); once you save any change in `/admin`, the live Blob catalog takes
+over and the seed is never read again.
+
+> **Prices are cost figures.** `priceEgp` comes from the stock sheet's EGP
+> column, which is labelled *product cost* — not a margin-loaded selling price.
+> Review and set real prices in `/admin` before quoting customers.
 
 ## Deploy
 

@@ -9,7 +9,7 @@ import { cairoSubjectDate } from "./shared";
  *   days of being placed.
  *
  * (The original studio digest also previewed tomorrow's appointments and
- * pending booking requests. Fayek OS is a pure shop, so the digest is
+ * pending booking requests. Fayek Abrasives is a pure shop, so the digest is
  * order-centric.)
  *
  * EMPTY-STATE POLICY (deliberate, opposite of the morning brief): when the
@@ -59,7 +59,7 @@ export function buildEveningDigest(input: EveningDigestInput): EveningDigest {
   const subject = `Evening digest — ${subjectDate}: ${staleOrders.length} order(s) need action`;
 
   const adminToken = process.env.ADMIN_TOKEN || "";
-  const adminBase = "https://fayek-os.example.com/admin";
+  const adminBase = "https://www.fayekabrasives.com/admin";
   const adminLink = adminToken
     ? `${adminBase}?key=${encodeURIComponent(adminToken)}`
     : adminBase;

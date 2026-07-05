@@ -131,15 +131,15 @@ export function buildBuyerOrderEmail(order: OrderEmailInput): {
 } {
   const ru = order.lang === "ru";
   const subject = ru
-    ? `Ваш заказ ${order.orderNumber} — Fayek OS`
-    : `Your order ${order.orderNumber} — Fayek OS`;
+    ? `Ваш заказ ${order.orderNumber} — Fayek Abrasives`
+    : `Your order ${order.orderNumber} — Fayek Abrasives`;
 
   const t = ru
     ? {
         greeting: `Здравствуйте, ${order.name}!`,
         orderNumber: `Номер заказа: ${order.orderNumber}`,
         thanks:
-          "Спасибо за ваш заказ в Fayek OS. Вот его детали:",
+          "Спасибо за ваш заказ в Fayek Abrasives. Вот его детали:",
         heading: "Ваш заказ",
         product: "Товар",
         qty: "Кол-во",
@@ -154,7 +154,7 @@ export function buildBuyerOrderEmail(order: OrderEmailInput): {
         greeting: `Hello ${order.name},`,
         orderNumber: `Order number: ${order.orderNumber}`,
         thanks:
-          "Thank you for your order with Fayek OS. Here are the details:",
+          "Thank you for your order with Fayek Abrasives. Here are the details:",
         heading: "Your order",
         product: "Product",
         qty: "Qty",
@@ -188,7 +188,7 @@ export function buildBuyerOrderEmail(order: OrderEmailInput): {
     t.delivery,
     "",
     t.signoff,
-    "Fayek OS",
+    "Fayek Abrasives",
   ].join("\n");
 
   const contentHtml = `<p style="margin:0 0 8px;color:#3A332C;font-size:15px;">${escapeHtml(t.greeting)}</p>
@@ -202,7 +202,7 @@ export function buildBuyerOrderEmail(order: OrderEmailInput): {
       <div style="margin-top:28px;padding:14px 16px;border:1px solid #E5DCCB;border-radius:10px;background-color:#F4EFE7;">
         <p style="margin:0;color:#3A332C;font-size:14px;line-height:1.65;">${escapeHtml(t.cod)}<br>${escapeHtml(t.call)}<br>${escapeHtml(t.delivery)}</p>
       </div>
-      <p style="margin:28px 0 0;color:#847866;font-size:14px;">${escapeHtml(t.signoff)}<br>Fayek OS</p>`;
+      <p style="margin:28px 0 0;color:#847866;font-size:14px;">${escapeHtml(t.signoff)}<br>Fayek Abrasives</p>`;
 
   const html = brandedEmailHtml({ heading: t.heading, contentHtml });
 

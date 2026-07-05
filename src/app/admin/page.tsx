@@ -19,7 +19,7 @@ import ClientsSection from "./clients-section";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Admin — Fayek OS",
+  title: "Admin — Fayek Abrasives",
   robots: { index: false, follow: false },
 };
 
@@ -91,7 +91,7 @@ export default async function AdminPage({
   return (
     <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-10 sm:px-6">
       <header className="mb-8">
-        <div className="mb-3 font-serif text-2xl tracking-tight text-[#38492E]">Fayek OS</div>
+        <div className="mb-3 font-serif text-2xl tracking-tight text-[#38492E]">Fayek Abrasives</div>
         <h1 className="mt-2 font-serif text-4xl text-[#38492E]">Store admin</h1>
         <p className="mt-2 text-sm text-[#5E6B4F]">
           Times shown in Cairo time (Africa/Cairo).

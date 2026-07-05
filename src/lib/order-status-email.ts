@@ -24,9 +24,9 @@ import type {
  */
 
 const EMAIL_FROM =
-  "Fayek OS <orders@fayek-os.example.com>";
-const REPLY_TO = "hello@fayek-os.example.com";
-const CONTACT_EMAIL = "hello@fayek-os.example.com";
+  "Fayek Abrasives <orders@ftc-eg.com>";
+const REPLY_TO = "info@ftc-eg.com";
+const CONTACT_EMAIL = "info@ftc-eg.com";
 
 export type EmailStatus = "confirmed" | "shipped" | "delivered" | "cancelled";
 
@@ -127,7 +127,7 @@ function copyFor(
           paragraphs: [
             `К сожалению, ваш заказ ${n} был отменён.`,
             `Причина: ${reasonText}.`,
-            `Если это стало неожиданностью, напишите нам на ${CONTACT_EMAIL} или спросите Василия на нашем сайте.`,
+            `Если это стало неожиданностью, напишите нам на ${CONTACT_EMAIL} или спросите Fayek на нашем сайте.`,
           ],
           recapTitle: "Состав заказа",
           product: "Товар",
@@ -196,7 +196,7 @@ function copyFor(
         heading: "Заказ доставлен",
         greeting: `Здравствуйте, ${order.name}!`,
         paragraphs: [
-          `Спасибо за ваш заказ ${n} в Fayek OS!`,
+          `Спасибо за ваш заказ ${n} в Fayek Abrasives!`,
           "Надеемся, вам понравятся ваши средства. За советами по их использованию обращайтесь к Василию на нашем сайте или напишите нам.",
         ],
         recapTitle: "Состав заказа",
@@ -212,7 +212,7 @@ function copyFor(
         heading: "Your order has been delivered",
         greeting: `Hello ${order.name},`,
         paragraphs: [
-          `Thank you for your order ${n} with Fayek OS!`,
+          `Thank you for your order ${n} with Fayek Abrasives!`,
           "We hope you love your products. For advice on using them, ask Fayek on our website or write to us.",
         ],
         recapTitle: "Order recap",
@@ -251,7 +251,7 @@ export function buildOrderStatusEmail(
     ...(t.footnote ? ["", t.footnote] : []),
     "",
     t.signoff,
-    "Fayek OS",
+    "Fayek Abrasives",
   ].join("\n");
 
   const itemRows = order.items
@@ -291,7 +291,7 @@ export function buildOrderStatusEmail(
           ? `<div style="margin-top:28px;padding:14px 16px;border:1px solid #E5DCCB;border-radius:10px;background-color:#F4EFE7;"><p style="margin:0;color:#3A332C;font-size:14px;line-height:1.65;">${escapeHtml(t.footnote)}</p></div>`
           : ""
       }
-      <p style="margin:28px 0 0;color:#847866;font-size:14px;">${escapeHtml(t.signoff)}<br>Fayek OS</p>`;
+      <p style="margin:28px 0 0;color:#847866;font-size:14px;">${escapeHtml(t.signoff)}<br>Fayek Abrasives</p>`;
 
   const html = brandedEmailHtml({ heading: t.heading, contentHtml });
 
