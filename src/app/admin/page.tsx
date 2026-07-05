@@ -160,6 +160,7 @@ export default async function AdminPage() {
           initialBatches={batches}
           products={productOptions}
           canCreate={can(role, "batches.create")}
+          canReceive={can(role, "batches.receive")}
         />
       ),
     });

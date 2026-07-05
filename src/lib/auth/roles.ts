@@ -9,8 +9,11 @@
  *               financial value edits.
  * - sales     — POS sales, orders, and a lightweight customer directory (pick /
  *               add a customer mid-sale); NO cost, finance, or private notes.
+ * - factory   — the factory side: declares/dispatches batches to the warehouse.
+ *               Does NOT receive/count (that's inventory) and has no price,
+ *               finance, or customer access.
  */
-export const ROLES = ["owner", "admin", "inventory", "sales"] as const;
+export const ROLES = ["owner", "admin", "inventory", "sales", "factory"] as const;
 export type Role = (typeof ROLES)[number];
 
 export function isRole(value: unknown): value is Role {
@@ -22,6 +25,7 @@ export const ROLE_LABELS: Record<Role, string> = {
   admin: "Admin",
   inventory: "Inventory",
   sales: "Sales / Cashier",
+  factory: "Factory",
 };
 
 /**
@@ -32,14 +36,14 @@ export const ROLE_LABELS: Record<Role, string> = {
  */
 export const PERMISSIONS = {
   // Catalog / inventory
-  "catalog.view": ["owner", "admin", "inventory", "sales"],
+  "catalog.view": ["owner", "admin", "inventory", "sales", "factory"],
   "catalog.editPrice": ["owner", "admin"], // financial value — NOT inventory
   "catalog.editStock": ["owner", "admin", "inventory"],
   "catalog.receiveBatch": ["owner", "admin", "inventory"],
   // Factory batches / receiving
-  "batches.view": ["owner", "admin", "inventory"],
-  "batches.create": ["owner", "admin"], // declare a factory dispatch
-  "batches.receive": ["owner", "admin", "inventory"], // count & receive
+  "batches.view": ["owner", "admin", "inventory", "factory"],
+  "batches.create": ["owner", "admin", "factory"], // declare a factory dispatch
+  "batches.receive": ["owner", "admin", "inventory"], // count & receive — NOT factory
   // Orders / POS
   "orders.view": ["owner", "admin", "sales"],
   "pos.sell": ["owner", "admin", "sales"],
@@ -72,7 +76,7 @@ export const TAB_ACCESS: Record<string, Role[]> = {
   // Customers (companies): sales gets the directory view; owner/admin get the
   // full account (notes, payment terms, edit).
   customers: ["owner", "admin", "sales"],
-  receiving: ["owner", "admin", "inventory"],
+  receiving: ["owner", "admin", "inventory", "factory"],
   reports: ["owner", "admin", "inventory", "sales"],
   approvals: ["owner", "admin"],
   users: ["owner", "admin"],

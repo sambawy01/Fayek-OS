@@ -31,10 +31,14 @@ export default function ReceivingSection({
   initialBatches,
   products,
   canCreate,
+  canReceive,
 }: {
   initialBatches: Batch[];
   products: ProductOption[];
+  /** Owner/Admin/Factory: declare a dispatch. */
   canCreate: boolean;
+  /** Owner/Admin/Inventory: receive & count. Factory cannot. */
+  canReceive: boolean;
 }) {
   const [batches, setBatches] = useState<Batch[]>(initialBatches);
   const [error, setError] = useState<string | null>(null);
@@ -129,7 +133,7 @@ export default function ReceivingSection({
           </div>
         )}
         {batches.map((b) => (
-          <BatchRow key={b.id} batch={b} open={openId === b.id}
+          <BatchRow key={b.id} batch={b} open={openId === b.id} canReceive={canReceive}
             onToggle={() => setOpenId(openId === b.id ? null : b.id)}
             onUpdated={(nb) => setBatches((prev) => prev.map((x) => x.id === nb.id ? nb : x))} />
         ))}
@@ -139,9 +143,9 @@ export default function ReceivingSection({
 }
 
 function BatchRow({
-  batch, open, onToggle, onUpdated,
+  batch, open, canReceive, onToggle, onUpdated,
 }: {
-  batch: Batch; open: boolean; onToggle: () => void; onUpdated: (b: Batch) => void;
+  batch: Batch; open: boolean; canReceive: boolean; onToggle: () => void; onUpdated: (b: Batch) => void;
 }) {
   const [detail, setDetail] = useState<BatchDetail | null>(null);
   const [recv, setRecv] = useState<Record<number, string>>({});
@@ -216,7 +220,7 @@ function BatchRow({
                   <td className="py-1.5 text-[#38492E]">{l.name}</td>
                   <td className="py-1.5 text-center text-[#5E6B4F]">{l.expectedQty}</td>
                   <td className="py-1.5 text-center">
-                    {batch.status === "dispatched" ? (
+                    {batch.status === "dispatched" && canReceive ? (
                       <input className="w-20 rounded-lg border border-[#38492E]/15 bg-white px-2 py-1 text-center text-sm"
                         inputMode="numeric" value={recv[l.id] ?? ""}
                         onChange={(e) => setRecv({ ...recv, [l.id]: e.target.value })} />
@@ -230,12 +234,15 @@ function BatchRow({
               ))}
             </tbody>
           </table>
-          {batch.status === "dispatched" && (
+          {batch.status === "dispatched" && canReceive && (
             <div className="mt-3">
               <button className={primaryBtn} disabled={busy} onClick={() => void receive()}>
                 {busy ? "Receiving…" : "Receive & count"}
               </button>
             </div>
+          )}
+          {batch.status === "dispatched" && !canReceive && (
+            <p className="mt-3 text-xs text-[#5E6B4F]">Awaiting warehouse receipt.</p>
           )}
         </div>
       )}
