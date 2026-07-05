@@ -89,11 +89,13 @@ Notes on the localization and known items to revisit:
 - **Languages**: bilingual **English + Arabic** (`en` / `ar` on products, orders
   and customer emails). Arabic fields are optional in `/admin` and fall back to
   the English values, so you can run English-only and add Arabic per product.
-- **Arabic in PDFs**: the letterhead/document PDF generator embeds Latin fonts
-  only — Arabic text in generated PDFs will not shape correctly yet. Email/HTML
-  and the admin UI render Arabic fine; embedding an Arabic (RTL-shaping) font in
-  `src/lib/assistant/letterhead-pdf.ts` is the follow-up if you need Arabic PDFs.
-- **Logo assets**: `public/logo.png` and `public/assets/logo-*.png` are carried
-  over from the source project and used in emails/PDF letterheads. Replace them
-  with your own artwork.
+- **Arabic in PDFs**: supported. The letterhead/document generator embeds Amiri
+  (OFL) and pdfkit/fontkit shape + RTL-order Arabic natively; Arabic runs are
+  auto-detected and rendered right-aligned in Amiri. (Minor spacing quirks
+  around numbers/neutral punctuation are inherent to pdfkit's bidi and are fine
+  for business documents.)
+- **Logo assets**: no logo ships — the letterhead and emails fall back to the
+  "FAYEK ABRASIVES" typeset wordmark. To use a real logo, host it at
+  `www.fayekabrasives.com/assets/logo-light.png` (emails + PDF) and/or drop a
+  `public/logo.png` (PDF letterhead fallback).
 - Timezone is hard-coded to **Africa/Cairo** for reports (`CAIRO_TZ`).
