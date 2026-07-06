@@ -52,6 +52,7 @@ function POCard({ po, onProcessed, onError }: { po: PurchaseOrder; onProcessed: 
   const [busy, setBusy] = useState(false);
   const [dispatchRequested, setDispatchRequested] = useState(po.dispatchRequested);
   const [invoiced, setInvoiced] = useState(!!po.receivableId);
+  const [releaseNote, setReleaseNote] = useState("");
 
   async function load() {
     setOpen(!open);
@@ -67,8 +68,8 @@ function POCard({ po, onProcessed, onError }: { po: PurchaseOrder; onProcessed: 
       return (await res.json()) as { purchaseOrder: PurchaseOrderDetail };
     } finally { setBusy(false); }
   }
-  async function doRequestDispatch() {
-    const r = await act({ action: "request-dispatch" });
+  async function doRelease() {
+    const r = await act({ action: "release", note: releaseNote });
     if (r) setDispatchRequested(true);
   }
   async function doInvoice() {
@@ -97,11 +98,35 @@ function POCard({ po, onProcessed, onError }: { po: PurchaseOrder; onProcessed: 
           {detail.lines.map((l, i) => (
             <p key={i} className="text-sm text-[#0E2A47]">{l.name} · {l.qty} × {egp(l.unitPriceEgp)}</p>
           ))}
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <button className={primaryBtn} disabled={busy || dispatchRequested} onClick={() => void doRequestDispatch()}>
-              {dispatchRequested ? "Sent to Inventory ✓" : "Send to Inventory for dispatch"}
-            </button>
-            {dispatchRequested && <span className="text-xs text-[#5B7186]">Warehouse confirms the dispatch &amp; deducts stock.</span>}
+          <div className="mt-3 rounded-xl border border-[#0E2A47]/10 bg-[#F4F8FD] px-3 py-2">
+            <p className="mb-2 text-xs uppercase tracking-[0.06em] text-[#5B7186]">Product release → Warehouse</p>
+            {!dispatchRequested ? (
+              <>
+                {!invoiced && (
+                  <p className="mb-2 text-xs text-[#8A5A12]">Invoice this PO first — goods are released to the warehouse only after invoicing.</p>
+                )}
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    className="min-w-[15rem] flex-1 rounded-xl border border-[#0E2A47]/15 bg-white px-2 py-1.5 text-sm disabled:opacity-50"
+                    placeholder="Authorization note (optional)"
+                    value={releaseNote}
+                    disabled={!invoiced}
+                    onChange={(e) => setReleaseNote(e.target.value)}
+                  />
+                  <button className={primaryBtn} disabled={busy || !invoiced} onClick={() => void doRelease()}>
+                    Release to Warehouse
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-sm font-medium text-[#0E7490]">Released to Warehouse ✓</span>
+                <a href={`/api/admin/purchase-orders/${po.id}/release-pdf`} target="_blank" rel="noreferrer" className={subtleBtn}>
+                  Product Release Form (PRF-{po.id})
+                </a>
+                <span className="text-xs text-[#5B7186]">Warehouse confirms dispatch &amp; deducts stock.</span>
+              </div>
+            )}
           </div>
           {!invoiced ? (
             <div className="mt-3 rounded-xl border border-[#1668C7]/20 bg-[#F4F8FD] px-3 py-2">

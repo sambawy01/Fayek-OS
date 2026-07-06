@@ -35,8 +35,14 @@ export interface PurchaseOrder {
   totalEgp: number;
   notes: string;
   fulfilled: boolean;
-  /** Finance has sent this PO to the warehouse for dispatch to the client. */
+  /** Finance has released this PO to the warehouse for dispatch to the client. */
   dispatchRequested: boolean;
+  /** When Finance released the goods to the warehouse (Product Release Form). */
+  dispatchReleasedAt: string | null;
+  /** Finance's authorization note on the release form. */
+  dispatchReleaseNote: string;
+  /** Name of the Finance user who released the goods (for the release form). */
+  releasedByName: string | null;
   receivableId: number | null;
   createdAt: string;
 }
@@ -149,7 +155,12 @@ export async function listProcessablePurchaseOrders(): Promise<PurchaseOrder[]> 
 }
 
 export async function getPurchaseOrder(id: number): Promise<PurchaseOrderDetail | null> {
-  const rows = (await db()`SELECT * FROM purchase_orders WHERE id = ${id}`) as Record<string, unknown>[];
+  const rows = (await db()`
+    SELECT po.*, u.name AS released_by_name
+    FROM purchase_orders po
+    LEFT JOIN users u ON u.id = po.dispatch_released_by
+    WHERE po.id = ${id}
+  `) as Record<string, unknown>[];
   if (!rows[0]) return null;
   const lines = (await db()`SELECT * FROM purchase_order_lines WHERE po_id = ${id} ORDER BY id`) as Record<string, unknown>[];
   return { ...toPO(rows[0]), lines: lines.map(toLine) };
@@ -161,17 +172,43 @@ function toPO(r: Record<string, unknown>): PurchaseOrder {
     companyName: String(r.company_name), quotationId: r.quotation_id === null ? null : Number(r.quotation_id),
     status: r.status as POStatus, totalEgp: Number(r.total_egp), notes: String(r.notes),
     fulfilled: Boolean(r.fulfilled), dispatchRequested: Boolean(r.dispatch_requested),
+    dispatchReleasedAt: r.dispatch_released_at ? isoString(r.dispatch_released_at) : null,
+    dispatchReleaseNote: r.dispatch_release_note ? String(r.dispatch_release_note) : "",
+    releasedByName: r.released_by_name ? String(r.released_by_name) : null,
     receivableId: r.receivable_id === null ? null : Number(r.receivable_id),
     createdAt: isoString(r.created_at),
   };
 }
 
-/** Finance → warehouse handoff: flag a PO ready for dispatch to the client. */
-export async function requestDispatch(id: number): Promise<PurchaseOrderDetail | null> {
+export type ReleaseResult =
+  | { ok: true; po: PurchaseOrderDetail }
+  | { ok: false; reason: "not_found" | "not_invoiced" | "already_fulfilled" };
+
+/**
+ * Finance → warehouse handoff (Product Release Form): Finance releases an
+ * INVOICED PO's goods to the warehouse for dispatch to the client. Records who
+ * released it, when, and an optional authorization note. Gated on invoicing —
+ * goods aren't released to the floor until the sale has been invoiced.
+ */
+export async function releaseToWarehouse(
+  id: number,
+  note: string,
+  releasedBy: number | null
+): Promise<ReleaseResult> {
   const po = await getPurchaseOrder(id);
-  if (!po || po.fulfilled) return po;
-  await db()`UPDATE purchase_orders SET dispatch_requested = TRUE, updated_at = now() WHERE id = ${id}`;
-  return getPurchaseOrder(id);
+  if (!po) return { ok: false, reason: "not_found" };
+  if (po.fulfilled) return { ok: false, reason: "already_fulfilled" };
+  if (!po.receivableId) return { ok: false, reason: "not_invoiced" };
+  await db()`
+    UPDATE purchase_orders
+    SET dispatch_requested = TRUE,
+        dispatch_released_at = now(),
+        dispatch_released_by = ${releasedBy},
+        dispatch_release_note = ${note},
+        updated_at = now()
+    WHERE id = ${id}
+  `;
+  return { ok: true, po: (await getPurchaseOrder(id))! };
 }
 
 /** POs Finance has sent for dispatch that the warehouse hasn't dispatched yet. */

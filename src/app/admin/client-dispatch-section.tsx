@@ -43,8 +43,9 @@ export default function ClientDispatchSection({
     <section>
       <h2 className="font-serif text-2xl text-[#0E2A47]">Client Dispatch</h2>
       <p className="mt-1 mb-4 text-sm text-[#5B7186]">
-        Purchase orders Finance has released for delivery to the client. Confirm the dispatch to
-        {" "}<b>deduct the stock</b> and close the order.
+        Purchase orders Finance has released to the warehouse (see the <b>Product Release Form</b>).
+        Print the client dispatch order, then confirm the dispatch to {" "}
+        <b>deduct the stock</b> and close the order.
       </p>
 
       {error && <div className="mb-4 rounded-2xl border border-[#CC4038]/30 bg-[#F4F8FD] px-5 py-3 text-sm text-[#CC4038]">{error}</div>}
@@ -66,7 +67,22 @@ export default function ClientDispatchSection({
                   <p key={i} className="text-sm text-[#0E2A47]">{l.name} · {l.qty} × {egp(l.unitPriceEgp)}</p>
                 ))}
               </div>
+              {(po.releasedByName || po.dispatchReleaseNote) && (
+                <p className="mt-2 text-xs text-[#5B7186]">
+                  Released by Finance{po.releasedByName ? ` · ${po.releasedByName}` : ""}
+                  {po.dispatchReleaseNote ? ` — “${po.dispatchReleaseNote}”` : ""}
+                </p>
+              )}
               <div className="mt-3 flex flex-wrap items-center gap-2">
+                <a
+                  href={`/api/admin/purchase-orders/${po.id}/release-pdf`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-full border border-[#0E2A47]/15 bg-[#F4F8FD] px-3 py-1.5 text-sm font-medium text-[#0E2A47] transition hover:bg-[#E4EEFA]"
+                  title={`Product Release Form for PO-${po.id}`}
+                >
+                  Product Release Form (PRF-{po.id})
+                </a>
                 <a
                   href={`/api/admin/purchase-orders/${po.id}/dispatch-pdf`}
                   target="_blank"

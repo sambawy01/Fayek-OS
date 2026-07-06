@@ -28,27 +28,42 @@ export interface DispatchPdfInput {
   dispatchedAt: string;
   lines: DispatchLine[];
   now?: Date;
-  // --- optional overrides for an OUTBOUND client dispatch ---
+  // --- optional overrides for an OUTBOUND client dispatch / release form ---
+  /** Document title. Default "DISPATCH ORDER". e.g. "PRODUCT RELEASE FORM". */
+  title?: string;
   docNo?: string;
   fromOverride?: string;
   toOverride?: string;
   toLine2?: string;
   intro?: string;
+  /** Left signature-block label. Default "Dispatched by". */
+  dispatchedByLabel?: string;
+  /** Single-column qty header (when no RECEIVED column). Default "QTY DISPATCHED". */
+  qtyLabel?: string;
   receivedByLabel?: string;
   /** Replaces the third meta row (default is Status). e.g. ["Linked PO", "PO-7"]. */
   metaThird?: [string, string];
+  /** Replaces the WHOLE meta block (Dispatch No./Date/…). Overrides docNo/metaThird. */
+  metaRows?: [string, string][];
 }
 
 export async function renderDispatchPdf(input: DispatchPdfInput): Promise<Buffer> {
   const doNo = input.docNo ?? `DO-${String(input.batchId).padStart(4, "0")}`;
   const dispatched = input.dispatchedAt ? new Date(input.dispatchedAt) : (input.now ?? new Date());
-  const { doc, done, x0, contentWidth, contentRight } = await createBrandedDoc({ title: `Dispatch Order ${doNo}` });
+  const title = input.title ?? "DISPATCH ORDER";
+  const { doc, done, x0, contentWidth, contentRight } = await createBrandedDoc({ title: `${title} ${doNo}` });
 
   // --- Title + meta -----------------------------------------------------------
   let y = BAND_HEIGHT + 40;
-  doc.font("Sans-Bold").fontSize(22).fillColor(INK)
-    .text("DISPATCH ORDER", x0, y, { characterSpacing: 1.5, features: NO_LIGATURES });
-  const meta: [string, string][] = [
+  // Shrink the title if it would collide with the right-hand meta column.
+  const titleMaxW = contentRight - 300 - x0 - 14;
+  let titleSize = 22;
+  doc.font("Sans-Bold").fontSize(titleSize);
+  const titleW = doc.widthOfString(title, { characterSpacing: 1.5, features: NO_LIGATURES });
+  if (titleW > titleMaxW) titleSize = Math.max(14, Math.floor((titleSize * titleMaxW) / titleW));
+  doc.fontSize(titleSize).fillColor(INK)
+    .text(title, x0, y + (22 - titleSize) * 0.5, { characterSpacing: 1.5, features: NO_LIGATURES });
+  const meta: [string, string][] = input.metaRows ?? [
     ["Dispatch No.", doNo],
     ["Date", fmtDate(dispatched)],
     input.metaThird ?? ["Status", STATUS_LABEL[input.status] ?? input.status],
@@ -107,7 +122,7 @@ export async function renderDispatchPdf(input: DispatchPdfInput): Promise<Buffer
     doc.text("#", xNum + 4, ty, { width: wNum - 4, features: NO_LIGATURES });
     doc.text("CODE", xCode + 2, ty, { width: wCode - 4, features: NO_LIGATURES });
     doc.text("PRODUCT", xName + 2, ty, { width: wName - 4, features: NO_LIGATURES });
-    doc.text(showReceived ? "DISPATCHED" : "QTY DISPATCHED", xQty, ty, { width: wQtyCol - 6, align: "right", features: NO_LIGATURES });
+    doc.text(showReceived ? "DISPATCHED" : (input.qtyLabel ?? "QTY DISPATCHED"), xQty, ty, { width: wQtyCol - 6, align: "right", features: NO_LIGATURES });
     if (showReceived) doc.text("RECEIVED", xRecv, ty, { width: wRecv - 6, align: "right", features: NO_LIGATURES });
     return hy + 22;
   };
@@ -157,7 +172,7 @@ export async function renderDispatchPdf(input: DispatchPdfInput): Promise<Buffer
   // --- Signatures -------------------------------------------------------------
   if (y + 70 > doc.page.height - BOTTOM_MARGIN) { doc.addPage(); y = BAND_HEIGHT + 40; }
   const half = (contentWidth - 40) / 2;
-  for (const [label, xoff] of [["Dispatched by", 0], [input.receivedByLabel ?? "Received by (warehouse)", half + 40]] as [string, number][]) {
+  for (const [label, xoff] of [[input.dispatchedByLabel ?? "Dispatched by", 0], [input.receivedByLabel ?? "Received by (warehouse)", half + 40]] as [string, number][]) {
     doc.moveTo(x0 + xoff, y + 26).lineTo(x0 + xoff + half, y + 26).lineWidth(0.5).strokeColor(MUTED).stroke();
     doc.font("Sans").fontSize(8.5).fillColor(MUTED).text(`${label} — name, signature & date`, x0 + xoff, y + 31, { width: half, characterSpacing: 0.5, features: NO_LIGATURES });
   }

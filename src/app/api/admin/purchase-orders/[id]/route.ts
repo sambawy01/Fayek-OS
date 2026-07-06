@@ -5,7 +5,7 @@ import {
   getPurchaseOrder,
   fulfilPurchaseOrder,
   invoicePurchaseOrder,
-  requestDispatch,
+  releaseToWarehouse,
 } from "@/lib/sales";
 
 export const runtime = "nodejs";
@@ -59,10 +59,18 @@ export async function POST(
     return NextResponse.json({ error: "Only Owner/Admin can process purchase orders." }, { status: 403 });
   }
 
-  if (body.action === "request-dispatch") {
-    const po = await requestDispatch(id);
-    if (!po) return NextResponse.json({ error: "Not found." }, { status: 404 });
-    return NextResponse.json({ purchaseOrder: po });
+  // "release" = Finance issues the Product Release Form → warehouse queue.
+  if (body.action === "release" || body.action === "request-dispatch") {
+    const note = typeof body.note === "string" ? body.note.trim() : "";
+    const r = await releaseToWarehouse(id, note, session.uid);
+    if (!r.ok) {
+      const msg =
+        r.reason === "not_found" ? "Not found." :
+        r.reason === "not_invoiced" ? "Invoice this PO before releasing it to the warehouse." :
+        "This PO has already been dispatched.";
+      return NextResponse.json({ error: msg }, { status: r.reason === "not_found" ? 404 : 409 });
+    }
+    return NextResponse.json({ purchaseOrder: r.po });
   }
   if (body.action === "invoice") {
     const num = (v: unknown) => (typeof v === "number" ? Math.round(v) : 0);
