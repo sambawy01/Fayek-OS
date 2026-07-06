@@ -209,8 +209,8 @@ export default async function AdminPage() {
     });
   }
 
-  // --- Factory dispatch / Receiving (factory batches) -------------------------
-  if (TAB_ACCESS.receiving.includes(role)) {
+  // --- Factory Dispatch + Inventory Receiving (separate tabs, shared data) -----
+  if (TAB_ACCESS.dispatch.includes(role) || TAB_ACCESS.receiving.includes(role)) {
     let batches: Batch[] = [];
     let productOptions: { slug: string; name: string }[] = [];
     try {
@@ -220,30 +220,41 @@ export default async function AdminPage() {
         .filter((p) => p.active)
         .map((p) => ({ slug: p.slug, name: p.en.name }));
     } catch (e) {
-      console.error("receiving load:", e);
+      console.error("batches load:", e);
     }
-    // Dispatched batches awaiting warehouse confirmation — surfaced as a badge
-    // so a factory dispatch "pops up" for whoever receives.
-    const awaitingReceipt = batches.filter((b) => b.status === "dispatched").length;
-    // Factory only dispatches; everyone else receives/confirms.
-    const isFactoryOnly = role === "factory";
-    const label = isFactoryOnly
-      ? "Factory Dispatch"
-      : awaitingReceipt > 0
-        ? `Receiving (${awaitingReceipt})`
-        : "Receiving";
-    tabs.push({
-      id: "receiving",
-      label,
-      node: (
-        <ReceivingSection
-          initialBatches={batches}
-          products={productOptions}
-          canCreate={can(role, "batches.create")}
-          canReceive={can(role, "batches.receive")}
-        />
-      ),
-    });
+    // Factory Dispatch: declare/dispatch batches + Dispatch Order records.
+    if (TAB_ACCESS.dispatch.includes(role)) {
+      tabs.push({
+        id: "dispatch",
+        label: "Factory Dispatch",
+        node: (
+          <ReceivingSection
+            initialBatches={batches}
+            products={productOptions}
+            canCreate={can(role, "batches.create")}
+            canReceive={false}
+            mode="dispatch"
+          />
+        ),
+      });
+    }
+    // Inventory Receiving: confirm & count; dispatched batches "pop up" as a badge.
+    if (TAB_ACCESS.receiving.includes(role)) {
+      const awaitingReceipt = batches.filter((b) => b.status === "dispatched").length;
+      tabs.push({
+        id: "receiving",
+        label: awaitingReceipt > 0 ? `Receiving (${awaitingReceipt})` : "Receiving",
+        node: (
+          <ReceivingSection
+            initialBatches={batches}
+            products={productOptions}
+            canCreate={false}
+            canReceive={can(role, "batches.receive")}
+            mode="receive"
+          />
+        ),
+      });
+    }
   }
 
   // --- Reports (role-appropriate + AI analysis) -------------------------------

@@ -86,7 +86,8 @@ export const TAB_ACCESS: Record<string, Role[]> = {
   // Customers (companies): sales gets the directory view; owner/admin get the
   // full account (notes, payment terms, edit).
   customers: ["owner", "admin", "sales"],
-  receiving: ["owner", "admin", "inventory", "factory"],
+  dispatch: ["owner", "admin", "factory"], // factory declares/dispatches batches
+  receiving: ["owner", "admin", "inventory"], // inventory confirms & counts receipt
   reports: ["owner", "admin", "inventory", "sales"],
   approvals: ["owner", "admin"],
   users: ["owner", "admin"],

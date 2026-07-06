@@ -33,6 +33,7 @@ export default function ReceivingSection({
   products,
   canCreate,
   canReceive,
+  mode = "receive",
 }: {
   initialBatches: Batch[];
   products: ProductOption[];
@@ -40,6 +41,8 @@ export default function ReceivingSection({
   canCreate: boolean;
   /** Owner/Admin/Inventory: receive & count. Factory cannot. */
   canReceive: boolean;
+  /** Which side this tab is: the Factory Dispatch tab or the Inventory Receiving tab. */
+  mode?: "dispatch" | "receive";
 }) {
   const [batches, setBatches] = useState<Batch[]>(initialBatches);
   const [error, setError] = useState<string | null>(null);
@@ -75,7 +78,7 @@ export default function ReceivingSection({
     finally { setBusy(false); }
   }
 
-  const factoryOnly = canCreate && !canReceive;
+  const isDispatch = mode === "dispatch";
   const awaiting = batches.filter((b) => b.status === "dispatched").length;
   const ordered = [...batches].sort((a, b) => {
     const rank = (s: string) => (s === "dispatched" ? 0 : s === "pending_approval" ? 1 : 2);
@@ -85,14 +88,14 @@ export default function ReceivingSection({
   return (
     <section>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="font-serif text-2xl text-[#0E2A47]">{factoryOnly ? "Factory Dispatch" : "Receiving"}</h2>
+        <h2 className="font-serif text-2xl text-[#0E2A47]">{isDispatch ? "Factory Dispatch" : "Inventory Receiving"}</h2>
         {canCreate && !adding && (
           <button className={primaryBtn} onClick={() => setAdding(true)}>New dispatch</button>
         )}
       </div>
       <p className="mb-4 text-sm text-[#5B7186]">
-        {factoryOnly
-          ? "Dispatch a batch to the warehouse. Inventory confirms the received count; you'll see the status update here."
+        {isDispatch
+          ? "Declare a batch dispatched to the warehouse — the system generates a Dispatch Order for your records. Inventory then confirms the received count; the status updates here."
           : "Factory batches dispatched to the warehouse. Confirm the received count on each; adjusting a quantity that differs from expected escalates to Owner/Admin for approval before stock is added."}
       </p>
 
@@ -206,19 +209,31 @@ function BatchRow({
 
   return (
     <div className="rounded-2xl border border-[#0E2A47]/10 bg-white px-4 py-3">
-      <button className="flex w-full items-center justify-between gap-3 text-left" onClick={() => void loadDetail()}>
-        <div className="min-w-0">
-          <p className="text-sm font-medium text-[#0E2A47]">
-            Batch #{batch.id}
-            {batch.supplier && <span className="text-[#5B7186]"> · {batch.supplier}</span>}
-            {batch.reference && <span className="text-[#5B7186]"> · {batch.reference}</span>}
-          </p>
-          <p className="text-xs text-[#5B7186]">{new Date(batch.dispatchedAt).toLocaleDateString()}</p>
-        </div>
-        <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_STYLE[batch.status] ?? ""}`}>
-          {statusLabel(batch.status)}
-        </span>
-      </button>
+      <div className="flex items-center justify-between gap-3">
+        <button className="flex min-w-0 flex-1 items-center justify-between gap-3 text-left" onClick={() => void loadDetail()}>
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-[#0E2A47]">
+              Batch #{batch.id}
+              {batch.supplier && <span className="text-[#5B7186]"> · {batch.supplier}</span>}
+              {batch.reference && <span className="text-[#5B7186]"> · {batch.reference}</span>}
+            </p>
+            <p className="text-xs text-[#5B7186]">{new Date(batch.dispatchedAt).toLocaleDateString()}</p>
+          </div>
+          <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_STYLE[batch.status] ?? ""}`}>
+            {statusLabel(batch.status)}
+          </span>
+        </button>
+        <a
+          href={`/api/admin/batches/${batch.id}/pdf`}
+          target="_blank"
+          rel="noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="shrink-0 rounded-lg border border-[#0E2A47]/15 bg-[#F4F8FD] px-2.5 py-1.5 text-xs font-medium text-[#1668C7] transition hover:bg-[#E4EEFA]"
+          title="Dispatch order (PDF)"
+        >
+          Dispatch order
+        </a>
+      </div>
 
       {open && detail && (
         <div className="mt-3 border-t border-[#0E2A47]/10 pt-3">
