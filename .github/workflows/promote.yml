@@ -1,0 +1,31 @@
+name: Promote staging → production
+
+# One-click promotion: fast-forwards `main` to `staging`, which triggers the
+# production deploy. Run this from the Actions tab AFTER the staging smoke is
+# green. Fast-forward only, so it refuses to promote if main and staging have
+# diverged (i.e. someone pushed to main directly) — keep all changes flowing
+# through staging to preserve a linear history.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Fast-forward main to staging
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin staging:staging
+          echo "main:    $(git rev-parse --short main)"
+          echo "staging: $(git rev-parse --short staging)"
+          git merge --ff-only staging
+          git push origin main
+          echo "✓ Promoted staging → main (production deploy will start)."

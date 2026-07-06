@@ -4,7 +4,7 @@ name: CI
 # reaches production. Catches the class of regressions that a bad deploy ships.
 on:
   push:
-    branches: [main]
+    branches: [main, staging]
   pull_request:
 
 jobs:

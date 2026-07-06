@@ -1,0 +1,29 @@
+name: Staging smoke
+
+# Every push to `staging` auto-deploys to the Vercel staging URL; this waits
+# for that deploy and smoke-tests /api/health (app + DB reachable). Green here
+# means it's safe to promote to production. Override the URL with repo secret
+# STAGING_URL if the branch alias differs.
+on:
+  push:
+    branches: [staging]
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for the staging deploy, then smoke /health
+        run: |
+          BASE="${STAGING_URL:-https://fayek-os-git-staging-sambawy-4389s-projects.vercel.app}"
+          echo "Staging base: $BASE"
+          sleep 90   # give Vercel time to build the new commit
+          for i in $(seq 1 20); do
+            code=$(curl -s -o /tmp/h.json -w "%{http_code}" --max-time 20 "$BASE/api/health" || echo 000)
+            echo "[$i] health: $code $(cat /tmp/h.json 2>/dev/null)"
+            if [ "$code" = "200" ]; then echo "✓ staging healthy — safe to promote"; exit 0; fi
+            sleep 15
+          done
+          echo "::error::staging /api/health never returned 200 — do NOT promote"
+          exit 1
+        env:
+          STAGING_URL: ${{ secrets.STAGING_URL }}
