@@ -23,7 +23,7 @@ export default function QuotationsSection({
   return (
     <section>
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <h2 className="mr-2 font-serif text-2xl text-[#38492E]">Quotations &amp; Outreach</h2>
+        <h2 className="mr-2 font-serif text-2xl text-[#0E2A47]">Quotations &amp; Outreach</h2>
         {(["quotes", "outreach"] as const).map((v) => (
           <button key={v} onClick={() => setView(v)} className={view === v ? primaryBtn : subtleBtn}>
             {v === "quotes" ? "Quotations" : "Outreach"}
@@ -80,15 +80,15 @@ function Quotations({ products, priceBySlug, initial }: { products: ProductOpt[]
   return (
     <div>
       <div className="mb-3 flex justify-between">
-        <p className="text-sm text-[#5E6B4F]">Build a quotation, download the PDF, and convert to a purchase order when accepted.</p>
+        <p className="text-sm text-[#5B7186]">Build a quotation, download the PDF, and convert to a purchase order when accepted.</p>
         {!adding && <button className={primaryBtn} onClick={() => setAdding(true)}>New quotation</button>}
       </div>
-      {error && <div className="mb-3 rounded-2xl border border-[#357F75]/30 bg-[#FBF4E6] px-4 py-2 text-sm text-[#2A6A61]">{error}</div>}
+      {error && <div className="mb-3 rounded-2xl border border-[#1668C7]/30 bg-[#F4F8FD] px-4 py-2 text-sm text-[#0E7490]">{error}</div>}
       {adding && (
-        <div className="mb-5 rounded-2xl border border-[#38492E]/10 bg-[#FBF4E6] px-5 py-4">
+        <div className="mb-5 rounded-2xl border border-[#0E2A47]/10 bg-[#F4F8FD] px-5 py-4">
           <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
             <CompanySearch value={company.name} onPick={(name, id) => setCompany({ name, id })} />
-            <div><label className="mb-1 block text-xs uppercase tracking-[0.08em] text-[#5E6B4F]">Valid until</label>
+            <div><label className="mb-1 block text-xs uppercase tracking-[0.08em] text-[#5B7186]">Valid until</label>
               <input type="date" className={inputCls} value={validUntil} onChange={(e) => setValidUntil(e.target.value)} /></div>
           </div>
           <LineEditor products={products} priceBySlug={priceBySlug} lines={lines} setLines={setLines} />
@@ -99,12 +99,12 @@ function Quotations({ products, priceBySlug, initial }: { products: ProductOpt[]
         </div>
       )}
       <div className="space-y-2">
-        {items.length === 0 && <div className="rounded-2xl border border-dashed border-[#38492E]/15 bg-[#FBF4E6]/60 px-6 py-8 text-center text-sm text-[#5E6B4F]">No quotations yet.</div>}
+        {items.length === 0 && <div className="rounded-2xl border border-dashed border-[#0E2A47]/15 bg-[#F4F8FD]/60 px-6 py-8 text-center text-sm text-[#5B7186]">No quotations yet.</div>}
         {items.map((q) => (
-          <div key={q.id} className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-[#38492E]/10 bg-white px-4 py-3">
+          <div key={q.id} className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-[#0E2A47]/10 bg-white px-4 py-3">
             <div>
-              <p className="text-sm font-medium text-[#38492E]">Q-{q.id} · {q.companyName} · {egp(q.totalEgp)}</p>
-              <p className="text-xs text-[#5E6B4F]">{q.status}{q.validUntil ? ` · valid to ${q.validUntil}` : ""}</p>
+              <p className="text-sm font-medium text-[#0E2A47]">Q-{q.id} · {q.companyName} · {egp(q.totalEgp)}</p>
+              <p className="text-xs text-[#5B7186]">{q.status}{q.validUntil ? ` · valid to ${q.validUntil}` : ""}</p>
             </div>
             <div className="flex flex-wrap gap-2">
               <a className={subtleBtn} href={`/api/admin/quotations/${q.id}/pdf`} target="_blank" rel="noreferrer">PDF</a>
@@ -170,7 +170,7 @@ function Outreach() {
 
   return (
     <div>
-      <p className="mb-3 text-sm text-[#5E6B4F]">Branded outreach emails (real logo &amp; brand colours). “Personalise with AI” researches the customer’s website and drafts a tailored message referencing specific products and improvements.</p>
+      <p className="mb-3 text-sm text-[#5B7186]">Branded outreach emails (real logo &amp; brand colours). “Personalise with AI” researches the customer’s website and drafts a tailored message referencing specific products and improvements.</p>
       <div className="mb-3 flex flex-wrap gap-2">
         {KINDS.map((k) => (
           <button key={k.id} onClick={() => setKind(k.id)} className={kind === k.id ? primaryBtn : subtleBtn}>{k.label}</button>
@@ -178,19 +178,19 @@ function Outreach() {
       </div>
       <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
-          <label className="mb-1 block text-[11px] font-medium uppercase tracking-[0.06em] text-[#5E6B4F]">Customer / contact name</label>
+          <label className="mb-1 block text-[11px] font-medium uppercase tracking-[0.06em] text-[#5B7186]">Customer / contact name</label>
           <input className={inputCls} placeholder="e.g. Eng. Hany Sadek" value={customer} onChange={(e) => setCustomer(e.target.value)} />
         </div>
         <div>
-          <label className="mb-1 block text-[11px] font-medium uppercase tracking-[0.06em] text-[#5E6B4F]">Customer website <span className="text-[#357F75]">(for AI research)</span></label>
+          <label className="mb-1 block text-[11px] font-medium uppercase tracking-[0.06em] text-[#5B7186]">Customer website <span className="text-[#1668C7]">(for AI research)</span></label>
           <input className={inputCls} placeholder="e.g. company.com" value={website} onChange={(e) => setWebsite(e.target.value)} />
         </div>
         <div>
-          <label className="mb-1 block text-[11px] font-medium uppercase tracking-[0.06em] text-[#5E6B4F]">Your signature</label>
+          <label className="mb-1 block text-[11px] font-medium uppercase tracking-[0.06em] text-[#5B7186]">Your signature</label>
           <input className={inputCls} placeholder="Your name · title (e.g. Omar — Sales)" value={signature} onChange={(e) => setSignature(e.target.value)} />
         </div>
         <div>
-          <label className="mb-1 block text-[11px] font-medium uppercase tracking-[0.06em] text-[#5E6B4F]">Brief / goal <span className="text-[#5E6B4F]/70">(optional)</span></label>
+          <label className="mb-1 block text-[11px] font-medium uppercase tracking-[0.06em] text-[#5B7186]">Brief / goal <span className="text-[#5B7186]/70">(optional)</span></label>
           <input className={inputCls} placeholder="e.g. they run a bottling line; pitch our filtration + lower cost" value={context} onChange={(e) => setContext(e.target.value)} />
         </div>
       </div>
@@ -199,31 +199,31 @@ function Outreach() {
         <button className={primaryBtn} disabled={!!busy} onClick={() => void gen(true)}>{busy === "ai" ? "Researching & drafting…" : "Personalise with AI"}</button>
       </div>
       {out && (
-        <div className="mt-4 rounded-2xl border border-[#38492E]/10 bg-white p-4">
+        <div className="mt-4 rounded-2xl border border-[#0E2A47]/10 bg-white p-4">
           {out.aiUnavailable && (
-            <div className="mb-3 rounded-xl border border-[#C08A2D]/40 bg-[#FBF4E6] px-3 py-2 text-xs text-[#8A6418]">
+            <div className="mb-3 rounded-xl border border-[#D6941F]/40 bg-[#F4F8FD] px-3 py-2 text-xs text-[#8A5A12]">
               AI is not configured yet — showing the standard template. Set <code>OLLAMA_API_KEY</code>{!out.webSearchAvailable && <> and <code>TAVILY_API_KEY</code></>} to enable research-driven personalisation.
             </div>
           )}
-          <p className="text-sm font-medium text-[#38492E]">Subject: {out.subject}
-            {out.ai && <span className="ml-2 rounded-full bg-[#357F75]/15 px-2 py-0.5 text-xs text-[#2A6A61]">AI{out.researched ? " · researched" : ""}</span>}
+          <p className="text-sm font-medium text-[#0E2A47]">Subject: {out.subject}
+            {out.ai && <span className="ml-2 rounded-full bg-[#1668C7]/15 px-2 py-0.5 text-xs text-[#0E7490]">AI{out.researched ? " · researched" : ""}</span>}
           </p>
           {out.relevantProducts && out.relevantProducts.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1.5">
               {out.relevantProducts.map((p, i) => (
-                <span key={i} className="rounded-full bg-[#38492E]/8 px-2 py-0.5 text-xs text-[#38492E]">{p}</span>
+                <span key={i} className="rounded-full bg-[#0E2A47]/8 px-2 py-0.5 text-xs text-[#0E2A47]">{p}</span>
               ))}
             </div>
           )}
-          <p className="mt-3 mb-2 text-[11px] uppercase tracking-[0.06em] text-[#5E6B4F]">Branded email preview</p>
-          <div className="overflow-hidden rounded-xl border border-[#38492E]/10">
+          <p className="mt-3 mb-2 text-[11px] uppercase tracking-[0.06em] text-[#5B7186]">Branded email preview</p>
+          <div className="overflow-hidden rounded-xl border border-[#0E2A47]/10">
             <iframe title="Branded email preview" srcDoc={out.html} className="h-[460px] w-full bg-white" />
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
             <button className={primaryBtn} onClick={() => void copyFormatted()}>{copied === "email" ? "Copied!" : "Copy branded email"}</button>
             <button className={subtleBtn} onClick={() => void copyText()}>{copied === "text" ? "Copied!" : "Copy plain text"}</button>
           </div>
-          <p className="mt-2 text-xs text-[#5E6B4F]">“Copy branded email” pastes the logo &amp; colours straight into Gmail or Outlook.</p>
+          <p className="mt-2 text-xs text-[#5B7186]">“Copy branded email” pastes the logo &amp; colours straight into Gmail or Outlook.</p>
         </div>
       )}
     </div>

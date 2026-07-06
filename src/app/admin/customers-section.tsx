@@ -4,11 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import type { Company, CompanyDirectory } from "@/lib/companies";
 
 const inputCls =
-  "w-full rounded-xl border border-[#38492E]/15 bg-white px-3 py-2 text-sm text-[#38492E] outline-none focus:border-[#357F75]";
+  "w-full rounded-xl border border-[#0E2A47]/15 bg-white px-3 py-2 text-sm text-[#0E2A47] outline-none focus:border-[#1668C7]";
 const primaryBtn =
-  "rounded-full bg-[#357F75] px-4 py-2 text-sm font-medium text-[#FBF4E6] transition hover:opacity-90 disabled:opacity-50";
+  "rounded-full bg-[#1668C7] px-4 py-2 text-sm font-medium text-[#F4F8FD] transition hover:opacity-90 disabled:opacity-50";
 const subtleBtn =
-  "rounded-full border border-[#38492E]/15 bg-[#FBF4E6] px-3 py-1.5 text-sm text-[#38492E] transition hover:bg-[#EFE7D6] disabled:opacity-50";
+  "rounded-full border border-[#0E2A47]/15 bg-[#F4F8FD] px-3 py-1.5 text-sm text-[#0E2A47] transition hover:bg-[#E4EEFA] disabled:opacity-50";
 
 async function readError(res: Response): Promise<string> {
   const d = (await res.json().catch(() => ({}))) as { error?: string };
@@ -108,7 +108,7 @@ export default function CustomersSection({
   function field(label: string, key: keyof typeof EMPTY, ph = "") {
     return (
       <div>
-        <label className="mb-1 block text-xs font-medium uppercase tracking-[0.08em] text-[#5E6B4F]">{label}</label>
+        <label className="mb-1 block text-xs font-medium uppercase tracking-[0.08em] text-[#5B7186]">{label}</label>
         <input className={inputCls} placeholder={ph} value={form[key]}
           onChange={(e) => setForm({ ...form, [key]: e.target.value })} />
       </div>
@@ -118,25 +118,25 @@ export default function CustomersSection({
   return (
     <section>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="font-serif text-2xl text-[#38492E]">Customers</h2>
+        <h2 className="font-serif text-2xl text-[#0E2A47]">Customers</h2>
         {!adding && (
           <button className={primaryBtn} onClick={() => { setAdding(true); setEditId(null); }}>
             Add customer
           </button>
         )}
       </div>
-      <p className="mb-4 text-sm text-[#5E6B4F]">
+      <p className="mb-4 text-sm text-[#5B7186]">
         Company accounts — search or add a customer with their tax ID and
         commercial registration.
       </p>
 
       {error && (
-        <div className="mb-4 rounded-2xl border border-[#B5483A]/30 bg-[#FBF4E6] px-5 py-3 text-sm text-[#B5483A]">{error}</div>
+        <div className="mb-4 rounded-2xl border border-[#CC4038]/30 bg-[#F4F8FD] px-5 py-3 text-sm text-[#CC4038]">{error}</div>
       )}
 
       {/* create */}
       {adding && (
-        <div className="mb-6 rounded-2xl border border-[#38492E]/10 bg-[#FBF4E6] px-5 py-4">
+        <div className="mb-6 rounded-2xl border border-[#0E2A47]/10 bg-[#F4F8FD] px-5 py-4">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {field("Company name *", "name")}
             {field("Tax ID (الرقم الضريبي)", "taxId")}
@@ -163,19 +163,19 @@ export default function CustomersSection({
       {/* list */}
       <div className="space-y-2">
         {companies.length === 0 && (
-          <div className="rounded-2xl border border-dashed border-[#38492E]/15 bg-[#FBF4E6]/60 px-6 py-8 text-center text-sm text-[#5E6B4F]">
+          <div className="rounded-2xl border border-dashed border-[#0E2A47]/15 bg-[#F4F8FD]/60 px-6 py-8 text-center text-sm text-[#5B7186]">
             No customers{search ? " match your search." : " yet — add the first one."}
           </div>
         )}
         {companies.map((c) => (
           <div key={c.id}>
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#38492E]/10 bg-white px-4 py-3">
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#0E2A47]/10 bg-white px-4 py-3">
               <div className="min-w-0">
-                <p className="text-sm font-medium text-[#38492E]">{c.name}</p>
-                <p className="text-xs text-[#5E6B4F]">
+                <p className="text-sm font-medium text-[#0E2A47]">{c.name}</p>
+                <p className="text-xs text-[#5B7186]">
                   {[c.contactName, c.phone, c.city].filter(Boolean).join(" · ") || "—"}
                 </p>
-                <p className="text-xs text-[#5E6B4F]">
+                <p className="text-xs text-[#5B7186]">
                   {c.taxId && <>Tax ID {c.taxId}</>}
                   {c.taxId && c.commercialReg && " · "}
                   {c.commercialReg && <>CR {c.commercialReg}</>}
@@ -186,11 +186,11 @@ export default function CustomersSection({
               )}
             </div>
             {canAccount && editId === c.id && editForm && (
-              <div className="mt-2 rounded-2xl border border-[#357F75]/30 bg-[#FBF4E6] px-5 py-4">
+              <div className="mt-2 rounded-2xl border border-[#1668C7]/30 bg-[#F4F8FD] px-5 py-4">
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   {(["name","taxId","commercialReg","contactName","phone","email","city","address","paymentTerms","notes"] as const).map((k) => (
                     <div key={k}>
-                      <label className="mb-1 block text-xs font-medium uppercase tracking-[0.08em] text-[#5E6B4F]">{k}</label>
+                      <label className="mb-1 block text-xs font-medium uppercase tracking-[0.08em] text-[#5B7186]">{k}</label>
                       <input className={inputCls} value={(editForm[k] as string) ?? ""}
                         onChange={(e) => setEditForm({ ...editForm, [k]: e.target.value })} />
                     </div>

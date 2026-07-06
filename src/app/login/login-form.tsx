@@ -33,12 +33,12 @@ export default function LoginForm({ next }: { next: string }) {
   }
 
   const inputCls =
-    "w-full rounded-xl border border-[#38492E]/15 bg-white px-3.5 py-2.5 text-[#38492E] outline-none focus:border-[#357F75]";
+    "w-full rounded-xl border border-[#0E2A47]/15 bg-white px-3.5 py-2.5 text-[#0E2A47] outline-none focus:border-[#1668C7]";
 
   return (
     <form onSubmit={submit} className="space-y-4">
       <div>
-        <label className="mb-1 block text-xs font-medium uppercase tracking-[0.08em] text-[#5E6B4F]">
+        <label className="mb-1 block text-xs font-medium uppercase tracking-[0.08em] text-[#5B7186]">
           Username
         </label>
         <input
@@ -50,7 +50,7 @@ export default function LoginForm({ next }: { next: string }) {
         />
       </div>
       <div>
-        <label className="mb-1 block text-xs font-medium uppercase tracking-[0.08em] text-[#5E6B4F]">
+        <label className="mb-1 block text-xs font-medium uppercase tracking-[0.08em] text-[#5B7186]">
           Password
         </label>
         <input
@@ -61,11 +61,11 @@ export default function LoginForm({ next }: { next: string }) {
           onChange={(e) => setPassword(e.target.value)}
         />
       </div>
-      {error && <p className="text-sm text-[#B5483A]">{error}</p>}
+      {error && <p className="text-sm text-[#CC4038]">{error}</p>}
       <button
         type="submit"
         disabled={busy || !username || !password}
-        className="w-full rounded-full bg-[#357F75] px-5 py-2.5 text-sm font-medium text-[#FBF4E6] transition hover:opacity-90 disabled:opacity-50"
+        className="w-full rounded-full bg-[#1668C7] px-5 py-2.5 text-sm font-medium text-[#F4F8FD] transition hover:opacity-90 disabled:opacity-50"
       >
         {busy ? "Signing in…" : "Sign in"}
       </button>

@@ -5,9 +5,9 @@ import type { PurchaseOrder, PurchaseOrderDetail } from "@/lib/sales";
 import InstallmentBuilder, { type Inst } from "./installment-builder";
 
 const primaryBtn =
-  "rounded-full bg-[#357F75] px-4 py-2 text-sm font-medium text-[#FBF4E6] transition hover:opacity-90 disabled:opacity-50";
+  "rounded-full bg-[#1668C7] px-4 py-2 text-sm font-medium text-[#F4F8FD] transition hover:opacity-90 disabled:opacity-50";
 const subtleBtn =
-  "rounded-full border border-[#38492E]/15 bg-[#FBF4E6] px-3 py-1.5 text-sm text-[#38492E] transition hover:bg-[#EFE7D6] disabled:opacity-50";
+  "rounded-full border border-[#0E2A47]/15 bg-[#F4F8FD] px-3 py-1.5 text-sm text-[#0E2A47] transition hover:bg-[#E4EEFA] disabled:opacity-50";
 const egp = (n: number) => `${n.toLocaleString("en-EG")} EGP`;
 
 async function readError(res: Response): Promise<string> {
@@ -21,13 +21,13 @@ export default function OpenPOsSection({ initialOpen }: { initialOpen: PurchaseO
 
   return (
     <section className="mt-10">
-      <h2 className="font-serif text-2xl text-[#38492E]">Open Purchase Orders</h2>
-      <p className="mt-1 text-sm text-[#5E6B4F]">
+      <h2 className="font-serif text-2xl text-[#0E2A47]">Open Purchase Orders</h2>
+      <p className="mt-1 text-sm text-[#5B7186]">
         Customer POs from Sales awaiting invoicing (→ receivable) and fulfilment (→ stock).
       </p>
-      {error && <div className="mt-3 rounded-2xl border border-[#B5483A]/30 bg-[#FBF4E6] px-4 py-2 text-sm text-[#B5483A]">{error}</div>}
+      {error && <div className="mt-3 rounded-2xl border border-[#CC4038]/30 bg-[#F4F8FD] px-4 py-2 text-sm text-[#CC4038]">{error}</div>}
       {items.length === 0 ? (
-        <div className="mt-4 rounded-2xl border border-dashed border-[#38492E]/15 bg-[#FBF4E6]/60 px-6 py-6 text-center text-sm text-[#5E6B4F]">
+        <div className="mt-4 rounded-2xl border border-dashed border-[#0E2A47]/15 bg-[#F4F8FD]/60 px-6 py-6 text-center text-sm text-[#5B7186]">
           No open purchase orders.
         </div>
       ) : (
@@ -83,25 +83,25 @@ function POCard({ po, onProcessed, onError }: { po: PurchaseOrder; onProcessed: 
   }
 
   return (
-    <div className="rounded-2xl border border-[#38492E]/10 bg-white px-4 py-3">
+    <div className="rounded-2xl border border-[#0E2A47]/10 bg-white px-4 py-3">
       <button className="flex w-full items-center justify-between text-left" onClick={() => void load()}>
-        <p className="text-sm font-medium text-[#38492E]">PO-{po.id} · {po.companyName} · {egp(po.totalEgp)}</p>
-        <span className="rounded-full bg-[#C08A2D]/15 px-2.5 py-0.5 text-xs text-[#8A6418]">open</span>
+        <p className="text-sm font-medium text-[#0E2A47]">PO-{po.id} · {po.companyName} · {egp(po.totalEgp)}</p>
+        <span className="rounded-full bg-[#D6941F]/15 px-2.5 py-0.5 text-xs text-[#8A5A12]">open</span>
       </button>
       {open && detail && (
-        <div className="mt-3 border-t border-[#38492E]/10 pt-3">
+        <div className="mt-3 border-t border-[#0E2A47]/10 pt-3">
           {detail.lines.map((l, i) => (
-            <p key={i} className="text-sm text-[#38492E]">{l.name} · {l.qty} × {egp(l.unitPriceEgp)}</p>
+            <p key={i} className="text-sm text-[#0E2A47]">{l.name} · {l.qty} × {egp(l.unitPriceEgp)}</p>
           ))}
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <button className={subtleBtn} disabled={busy || fulfilled} onClick={() => void doFulfil()}>{fulfilled ? "Fulfilled ✓" : "Fulfil (deduct stock)"}</button>
           </div>
           {!invoiced ? (
-            <div className="mt-3 rounded-xl border border-[#357F75]/20 bg-[#FBF4E6] px-3 py-2">
-              <p className="mb-2 text-xs uppercase tracking-[0.06em] text-[#5E6B4F]">Invoice → receivable</p>
+            <div className="mt-3 rounded-xl border border-[#1668C7]/20 bg-[#F4F8FD] px-3 py-2">
+              <p className="mb-2 text-xs uppercase tracking-[0.06em] text-[#5B7186]">Invoice → receivable</p>
               <div className="flex flex-wrap items-center gap-2">
-                <input className="w-28 rounded-xl border border-[#38492E]/15 bg-white px-2 py-1.5 text-sm" inputMode="numeric" placeholder="Advance EGP" value={inv.advanceEgp} onChange={(e) => setInv({ ...inv, advanceEgp: e.target.value })} />
-                <input className="rounded-xl border border-[#38492E]/15 bg-white px-2 py-1.5 text-sm" type="date" value={inv.dueDate} onChange={(e) => setInv({ ...inv, dueDate: e.target.value })} title="Overall due date" />
+                <input className="w-28 rounded-xl border border-[#0E2A47]/15 bg-white px-2 py-1.5 text-sm" inputMode="numeric" placeholder="Advance EGP" value={inv.advanceEgp} onChange={(e) => setInv({ ...inv, advanceEgp: e.target.value })} />
+                <input className="rounded-xl border border-[#0E2A47]/15 bg-white px-2 py-1.5 text-sm" type="date" value={inv.dueDate} onChange={(e) => setInv({ ...inv, dueDate: e.target.value })} title="Overall due date" />
                 <button className={primaryBtn} disabled={busy} onClick={() => void doInvoice()}>Invoice</button>
               </div>
               <div className="mt-3">
@@ -113,7 +113,7 @@ function POCard({ po, onProcessed, onError }: { po: PurchaseOrder; onProcessed: 
               </div>
             </div>
           ) : (
-            <p className="mt-3 text-sm text-[#2A6A61]">Invoiced ✓ (receivable created — see Finance › Receivables)</p>
+            <p className="mt-3 text-sm text-[#0E7490]">Invoiced ✓ (receivable created — see Finance › Receivables)</p>
           )}
         </div>
       )}

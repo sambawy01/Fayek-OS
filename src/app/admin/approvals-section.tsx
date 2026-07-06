@@ -7,11 +7,11 @@ interface DiscLine { name: string; expectedQty: number; receivedQty: number; dif
 interface DiscDetail { reference?: string; supplier?: string; lines?: DiscLine[] }
 
 const primaryBtn =
-  "rounded-full bg-[#357F75] px-4 py-2 text-sm font-medium text-[#FBF4E6] transition hover:opacity-90 disabled:opacity-50";
+  "rounded-full bg-[#1668C7] px-4 py-2 text-sm font-medium text-[#F4F8FD] transition hover:opacity-90 disabled:opacity-50";
 const dangerBtn =
-  "rounded-full border border-[#B5483A]/40 bg-[#FBF4E6] px-4 py-2 text-sm font-medium text-[#B5483A] transition hover:bg-[#F3E4E1] disabled:opacity-50";
+  "rounded-full border border-[#CC4038]/40 bg-[#F4F8FD] px-4 py-2 text-sm font-medium text-[#CC4038] transition hover:bg-[#FBEAE8] disabled:opacity-50";
 const subtleBtn =
-  "rounded-full border border-[#38492E]/15 bg-[#FBF4E6] px-3 py-1.5 text-sm text-[#38492E] transition hover:bg-[#EFE7D6] disabled:opacity-50";
+  "rounded-full border border-[#0E2A47]/15 bg-[#F4F8FD] px-3 py-1.5 text-sm text-[#0E2A47] transition hover:bg-[#E4EEFA] disabled:opacity-50";
 
 async function readError(res: Response): Promise<string> {
   const d = (await res.json().catch(() => ({}))) as { error?: string };
@@ -30,17 +30,17 @@ export default function ApprovalsSection({
 
   return (
     <section>
-      <h2 className="font-serif text-2xl text-[#38492E]">Approvals &amp; Decisions</h2>
-      <p className="mt-1 text-sm text-[#5E6B4F]">
+      <h2 className="font-serif text-2xl text-[#0E2A47]">Approvals &amp; Decisions</h2>
+      <p className="mt-1 text-sm text-[#5B7186]">
         Pending requests and escalated issues, with executive AI recommendations.
       </p>
 
       {error && (
-        <div className="mt-4 rounded-2xl border border-[#B5483A]/30 bg-[#FBF4E6] px-5 py-3 text-sm text-[#B5483A]">{error}</div>
+        <div className="mt-4 rounded-2xl border border-[#CC4038]/30 bg-[#F4F8FD] px-5 py-3 text-sm text-[#CC4038]">{error}</div>
       )}
 
       {pending.length === 0 ? (
-        <div className="mt-4 rounded-2xl border border-dashed border-[#38492E]/15 bg-[#FBF4E6]/60 px-6 py-8 text-center text-sm text-[#5E6B4F]">
+        <div className="mt-4 rounded-2xl border border-dashed border-[#0E2A47]/15 bg-[#F4F8FD]/60 px-6 py-8 text-center text-sm text-[#5B7186]">
           Nothing pending. Escalated batch discrepancies will appear here.
         </div>
       ) : (
@@ -94,10 +94,10 @@ function ApprovalCard({
   }
 
   return (
-    <article className="rounded-2xl border border-[#B5483A]/25 bg-[#FBF4E6] px-5 py-4">
-      <p className="text-sm font-medium text-[#38492E]">{approval.title}</p>
+    <article className="rounded-2xl border border-[#CC4038]/25 bg-[#F4F8FD] px-5 py-4">
+      <p className="text-sm font-medium text-[#0E2A47]">{approval.title}</p>
       {(detail.supplier || detail.reference) && (
-        <p className="text-xs text-[#5E6B4F]">
+        <p className="text-xs text-[#5B7186]">
           {[detail.supplier, detail.reference].filter(Boolean).join(" · ")}
         </p>
       )}
@@ -105,18 +105,18 @@ function ApprovalCard({
       {detail.lines && detail.lines.length > 0 && (
         <table className="mt-3 w-full text-sm">
           <thead>
-            <tr className="text-left text-xs uppercase tracking-[0.06em] text-[#5E6B4F]">
+            <tr className="text-left text-xs uppercase tracking-[0.06em] text-[#5B7186]">
               <th className="pb-1">Product</th><th className="pb-1 text-center">Expected</th>
               <th className="pb-1 text-center">Received</th><th className="pb-1 text-center">Diff</th>
             </tr>
           </thead>
           <tbody>
             {detail.lines.map((l, i) => (
-              <tr key={i} className="border-t border-[#38492E]/5">
-                <td className="py-1.5 text-[#38492E]">{l.name}</td>
-                <td className="py-1.5 text-center text-[#5E6B4F]">{l.expectedQty}</td>
-                <td className="py-1.5 text-center text-[#38492E]">{l.receivedQty}</td>
-                <td className={`py-1.5 text-center font-medium ${l.diff === 0 ? "text-[#5E6B4F]" : "text-[#B5483A]"}`}>
+              <tr key={i} className="border-t border-[#0E2A47]/5">
+                <td className="py-1.5 text-[#0E2A47]">{l.name}</td>
+                <td className="py-1.5 text-center text-[#5B7186]">{l.expectedQty}</td>
+                <td className="py-1.5 text-center text-[#0E2A47]">{l.receivedQty}</td>
+                <td className={`py-1.5 text-center font-medium ${l.diff === 0 ? "text-[#5B7186]" : "text-[#CC4038]"}`}>
                   {l.diff > 0 ? `+${l.diff}` : l.diff}
                 </td>
               </tr>
@@ -125,10 +125,10 @@ function ApprovalCard({
         </table>
       )}
 
-      <div className="mt-3 rounded-xl border border-[#357F75]/20 bg-white px-3 py-2">
-        <p className="text-xs font-medium uppercase tracking-[0.08em] text-[#357F75]">Executive AI recommendation</p>
+      <div className="mt-3 rounded-xl border border-[#1668C7]/20 bg-white px-3 py-2">
+        <p className="text-xs font-medium uppercase tracking-[0.08em] text-[#1668C7]">Executive AI recommendation</p>
         {rec ? (
-          <p className="mt-1 whitespace-pre-wrap text-sm text-[#38492E]">{rec}</p>
+          <p className="mt-1 whitespace-pre-wrap text-sm text-[#0E2A47]">{rec}</p>
         ) : (
           <button className={`${subtleBtn} mt-1`} disabled={busy} onClick={() => void getRec()}>
             {busy ? "Thinking…" : "Get AI recommendation"}
@@ -136,7 +136,7 @@ function ApprovalCard({
         )}
       </div>
 
-      <input className="mt-3 w-full rounded-xl border border-[#38492E]/15 bg-white px-3 py-2 text-sm text-[#38492E] outline-none focus:border-[#357F75]"
+      <input className="mt-3 w-full rounded-xl border border-[#0E2A47]/15 bg-white px-3 py-2 text-sm text-[#0E2A47] outline-none focus:border-[#1668C7]"
         placeholder="Decision note (required to reject)…" value={note} onChange={(e) => setNote(e.target.value)} />
       <div className="mt-3 flex flex-wrap gap-2">
         <button className={primaryBtn} disabled={busy} onClick={() => void decide("approve")}>

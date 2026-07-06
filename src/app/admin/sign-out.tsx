@@ -16,7 +16,7 @@ export default function SignOut({ label }: { label: string }) {
           window.location.href = "/login";
         }
       }}
-      className="text-sm text-[#5E6B4F] underline underline-offset-2 hover:text-[#38492E] disabled:opacity-50"
+      className="text-sm text-[#5B7186] underline underline-offset-2 hover:text-[#0E2A47] disabled:opacity-50"
       title={label}
     >
       Sign out

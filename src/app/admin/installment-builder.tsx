@@ -2,8 +2,8 @@
 
 export interface Inst { amount: string; due: string }
 
-const cell = "rounded-xl border border-[#38492E]/15 bg-white px-2.5 py-1.5 text-sm text-[#38492E] outline-none focus:border-[#357F75]";
-const subtleBtn = "rounded-full border border-[#38492E]/15 bg-[#FBF4E6] px-3 py-1.5 text-sm text-[#38492E] transition hover:bg-[#EFE7D6]";
+const cell = "rounded-xl border border-[#0E2A47]/15 bg-white px-2.5 py-1.5 text-sm text-[#0E2A47] outline-none focus:border-[#1668C7]";
+const subtleBtn = "rounded-full border border-[#0E2A47]/15 bg-[#F4F8FD] px-3 py-1.5 text-sm text-[#0E2A47] transition hover:bg-[#E4EEFA]";
 
 /**
  * Custom installment schedule: add any number of installments, each with its
@@ -37,19 +37,19 @@ export default function InstallmentBuilder({
   return (
     <div>
       <div className="mb-1 flex items-center justify-between">
-        <label className="text-xs font-medium uppercase tracking-[0.08em] text-[#5E6B4F]">Installments</label>
+        <label className="text-xs font-medium uppercase tracking-[0.08em] text-[#5B7186]">Installments</label>
         <div className="flex gap-2">
           <button type="button" className={subtleBtn} onClick={() => onChange([...value, { amount: "", due: "" }])}>+ Add</button>
           <button type="button" className={subtleBtn} onClick={splitN}>Split into N…</button>
         </div>
       </div>
       {value.length === 0 ? (
-        <p className="text-xs text-[#5E6B4F]">None — the full balance is due by the due date, or add installments.</p>
+        <p className="text-xs text-[#5B7186]">None — the full balance is due by the due date, or add installments.</p>
       ) : (
         <div className="space-y-2">
           {value.map((r, i) => (
             <div key={i} className="flex items-center gap-2">
-              <span className="w-6 text-xs text-[#5E6B4F]">#{i + 1}</span>
+              <span className="w-6 text-xs text-[#5B7186]">#{i + 1}</span>
               <input className={`${cell} w-28`} inputMode="numeric" placeholder="Amount EGP" value={r.amount}
                 onChange={(e) => onChange(value.map((x, j) => j === i ? { ...x, amount: e.target.value } : x))} />
               <input className={cell} type="date" value={r.due}
@@ -57,10 +57,10 @@ export default function InstallmentBuilder({
               <button type="button" className={subtleBtn} onClick={() => onChange(value.filter((_, j) => j !== i))}>–</button>
             </div>
           ))}
-          <p className="text-xs text-[#5E6B4F]">
+          <p className="text-xs text-[#5B7186]">
             Scheduled: {scheduled.toLocaleString("en-EG")} EGP
             {remaining > 0 && scheduled !== remaining && (
-              <span className="text-[#B5483A]"> · balance is {remaining.toLocaleString("en-EG")} EGP</span>
+              <span className="text-[#CC4038]"> · balance is {remaining.toLocaleString("en-EG")} EGP</span>
             )}
           </p>
         </div>

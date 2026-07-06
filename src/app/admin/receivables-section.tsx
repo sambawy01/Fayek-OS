@@ -6,18 +6,18 @@ import type { CompanyDirectory } from "@/lib/companies";
 import InstallmentBuilder, { type Inst } from "./installment-builder";
 
 const inputCls =
-  "w-full rounded-xl border border-[#38492E]/15 bg-white px-3 py-2 text-sm text-[#38492E] outline-none focus:border-[#357F75]";
+  "w-full rounded-xl border border-[#0E2A47]/15 bg-white px-3 py-2 text-sm text-[#0E2A47] outline-none focus:border-[#1668C7]";
 const primaryBtn =
-  "rounded-full bg-[#357F75] px-4 py-2 text-sm font-medium text-[#FBF4E6] transition hover:opacity-90 disabled:opacity-50";
+  "rounded-full bg-[#1668C7] px-4 py-2 text-sm font-medium text-[#F4F8FD] transition hover:opacity-90 disabled:opacity-50";
 const subtleBtn =
-  "rounded-full border border-[#38492E]/15 bg-[#FBF4E6] px-3 py-1.5 text-sm text-[#38492E] transition hover:bg-[#EFE7D6] disabled:opacity-50";
+  "rounded-full border border-[#0E2A47]/15 bg-[#F4F8FD] px-3 py-1.5 text-sm text-[#0E2A47] transition hover:bg-[#E4EEFA] disabled:opacity-50";
 
 const egp = (n: number) => `${n.toLocaleString("en-EG")} EGP`;
 const STATUS: Record<string, string> = {
-  pending: "bg-[#B5483A]/12 text-[#B5483A]",
-  partial: "bg-[#C08A2D]/15 text-[#8A6418]",
-  paid: "bg-[#357F75]/15 text-[#2A6A61]",
-  void: "bg-[#38492E]/10 text-[#5E6B4F]",
+  pending: "bg-[#CC4038]/12 text-[#CC4038]",
+  partial: "bg-[#D6941F]/15 text-[#8A5A12]",
+  paid: "bg-[#1668C7]/15 text-[#0E7490]",
+  void: "bg-[#0E2A47]/10 text-[#5B7186]",
 };
 function overdue(due: string | null): boolean {
   return !!due && new Date(due) < new Date(new Date().toDateString());
@@ -87,41 +87,41 @@ export default function ReceivablesSection({
   return (
     <section className="mt-10">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="font-serif text-2xl text-[#38492E]">Receivables</h2>
+        <h2 className="font-serif text-2xl text-[#0E2A47]">Receivables</h2>
         {!adding && <button className={primaryBtn} onClick={() => setAdding(true)}>New credit sale</button>}
       </div>
-      <p className="mb-4 text-sm text-[#5E6B4F]">
+      <p className="mb-4 text-sm text-[#5B7186]">
         Pending payments — advances and installments. Outstanding:{" "}
-        <span className="font-medium text-[#38492E]">{egp(totalOutstanding)}</span>
+        <span className="font-medium text-[#0E2A47]">{egp(totalOutstanding)}</span>
       </p>
 
-      {error && <div className="mb-4 rounded-2xl border border-[#B5483A]/30 bg-[#FBF4E6] px-5 py-3 text-sm text-[#B5483A]">{error}</div>}
+      {error && <div className="mb-4 rounded-2xl border border-[#CC4038]/30 bg-[#F4F8FD] px-5 py-3 text-sm text-[#CC4038]">{error}</div>}
 
       {adding && (
-        <div className="mb-6 rounded-2xl border border-[#38492E]/10 bg-[#FBF4E6] px-5 py-4">
+        <div className="mb-6 rounded-2xl border border-[#0E2A47]/10 bg-[#F4F8FD] px-5 py-4">
           <div className="relative mb-3">
             <input className={inputCls} placeholder="Customer (search or type a name)" value={companyQ || f.companyName}
               onChange={(e) => void searchCompanies(e.target.value)} />
             {companyHits.length > 0 && (
-              <div className="absolute z-10 mt-1 max-h-40 w-full overflow-auto rounded-xl border border-[#38492E]/15 bg-white">
+              <div className="absolute z-10 mt-1 max-h-40 w-full overflow-auto rounded-xl border border-[#0E2A47]/15 bg-white">
                 {companyHits.map((c) => (
                   <button key={c.id} type="button"
                     onClick={() => { setF({ ...f, companyId: c.id, companyName: c.name }); setCompanyQ(c.name); setCompanyHits([]); }}
-                    className="block w-full px-3 py-2 text-left text-sm hover:bg-[#EFE7D6]">
-                    {c.name}{c.taxId && <span className="ml-2 text-xs text-[#5E6B4F]">Tax ID {c.taxId}</span>}
+                    className="block w-full px-3 py-2 text-left text-sm hover:bg-[#E4EEFA]">
+                    {c.name}{c.taxId && <span className="ml-2 text-xs text-[#5B7186]">Tax ID {c.taxId}</span>}
                   </button>
                 ))}
               </div>
             )}
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div><label className="mb-1 block text-xs uppercase tracking-[0.08em] text-[#5E6B4F]">Total (EGP)</label>
+            <div><label className="mb-1 block text-xs uppercase tracking-[0.08em] text-[#5B7186]">Total (EGP)</label>
               <input className={inputCls} inputMode="numeric" value={f.totalEgp} onChange={(e) => setF({ ...f, totalEgp: e.target.value })} /></div>
-            <div><label className="mb-1 block text-xs uppercase tracking-[0.08em] text-[#5E6B4F]">Due date</label>
+            <div><label className="mb-1 block text-xs uppercase tracking-[0.08em] text-[#5B7186]">Due date</label>
               <input className={inputCls} type="date" value={f.dueDate} onChange={(e) => setF({ ...f, dueDate: e.target.value })} /></div>
-            <div><label className="mb-1 block text-xs uppercase tracking-[0.08em] text-[#5E6B4F]">Advance paid (EGP)</label>
+            <div><label className="mb-1 block text-xs uppercase tracking-[0.08em] text-[#5B7186]">Advance paid (EGP)</label>
               <input className={inputCls} inputMode="numeric" value={f.advanceAmount} onChange={(e) => setF({ ...f, advanceAmount: e.target.value })} /></div>
-            <div><label className="mb-1 block text-xs uppercase tracking-[0.08em] text-[#5E6B4F]">Advance method</label>
+            <div><label className="mb-1 block text-xs uppercase tracking-[0.08em] text-[#5B7186]">Advance method</label>
               <select className={inputCls} value={f.advanceMethod} onChange={(e) => setF({ ...f, advanceMethod: e.target.value })}>
                 <option value="cash">Cash</option><option value="card">Card</option><option value="instapay">InstaPay</option><option value="transfer">Transfer</option>
               </select></div>
@@ -142,7 +142,7 @@ export default function ReceivablesSection({
 
       <div className="space-y-2">
         {items.length === 0 && (
-          <div className="rounded-2xl border border-dashed border-[#38492E]/15 bg-[#FBF4E6]/60 px-6 py-8 text-center text-sm text-[#5E6B4F]">
+          <div className="rounded-2xl border border-dashed border-[#0E2A47]/15 bg-[#F4F8FD]/60 px-6 py-8 text-center text-sm text-[#5B7186]">
             No receivables yet.
           </div>
         )}
@@ -192,41 +192,41 @@ function ReceivableRow({
 
   const r = detail ?? receivable;
   return (
-    <div className="rounded-2xl border border-[#38492E]/10 bg-white px-4 py-3">
+    <div className="rounded-2xl border border-[#0E2A47]/10 bg-white px-4 py-3">
       <button className="flex w-full items-center justify-between gap-3 text-left" onClick={() => void load()}>
         <div className="min-w-0">
-          <p className="text-sm font-medium text-[#38492E]">{r.companyName || "Customer"}</p>
-          <p className="text-xs text-[#5E6B4F]">
+          <p className="text-sm font-medium text-[#0E2A47]">{r.companyName || "Customer"}</p>
+          <p className="text-xs text-[#5B7186]">
             {egp(r.balanceEgp)} due of {egp(r.totalEgp)}
-            {r.dueDate && <span className={overdue(r.dueDate) && r.status !== "paid" ? "text-[#B5483A]" : ""}> · due {r.dueDate}</span>}
+            {r.dueDate && <span className={overdue(r.dueDate) && r.status !== "paid" ? "text-[#CC4038]" : ""}> · due {r.dueDate}</span>}
           </p>
         </div>
         <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS[r.status] ?? ""}`}>{r.status}</span>
       </button>
 
       {open && detail && (
-        <div className="mt-3 border-t border-[#38492E]/10 pt-3 text-sm">
+        <div className="mt-3 border-t border-[#0E2A47]/10 pt-3 text-sm">
           {detail.installments.length > 0 && (
             <div className="mb-3">
-              <p className="mb-1 text-xs uppercase tracking-[0.06em] text-[#5E6B4F]">Installment plan</p>
+              <p className="mb-1 text-xs uppercase tracking-[0.06em] text-[#5B7186]">Installment plan</p>
               {detail.installments.map((i) => (
-                <p key={i.id} className="text-[#38492E]">#{i.seq} · {egp(i.amountEgp)}{i.dueDate ? ` · due ${i.dueDate}` : ""}</p>
+                <p key={i.id} className="text-[#0E2A47]">#{i.seq} · {egp(i.amountEgp)}{i.dueDate ? ` · due ${i.dueDate}` : ""}</p>
               ))}
             </div>
           )}
           {detail.payments.length > 0 && (
             <div className="mb-3">
-              <p className="mb-1 text-xs uppercase tracking-[0.06em] text-[#5E6B4F]">Payments</p>
+              <p className="mb-1 text-xs uppercase tracking-[0.06em] text-[#5B7186]">Payments</p>
               {detail.payments.map((p) => (
-                <p key={p.id} className="text-[#38492E]">{egp(p.amountEgp)} · {p.method} · {p.kind} · {new Date(p.paidAt).toLocaleDateString()}</p>
+                <p key={p.id} className="text-[#0E2A47]">{egp(p.amountEgp)} · {p.method} · {p.kind} · {new Date(p.paidAt).toLocaleDateString()}</p>
               ))}
             </div>
           )}
           {r.status !== "paid" && r.status !== "void" && (
             <div className="flex flex-wrap items-center gap-2">
-              <input className="w-28 rounded-xl border border-[#38492E]/15 bg-white px-2 py-1.5 text-sm" inputMode="numeric"
+              <input className="w-28 rounded-xl border border-[#0E2A47]/15 bg-white px-2 py-1.5 text-sm" inputMode="numeric"
                 placeholder="Amount" value={pay.amount} onChange={(e) => setPay({ ...pay, amount: e.target.value })} />
-              <select className="rounded-xl border border-[#38492E]/15 bg-white px-2 py-1.5 text-sm" value={pay.method}
+              <select className="rounded-xl border border-[#0E2A47]/15 bg-white px-2 py-1.5 text-sm" value={pay.method}
                 onChange={(e) => setPay({ ...pay, method: e.target.value })}>
                 <option value="cash">Cash</option><option value="card">Card</option><option value="instapay">InstaPay</option><option value="transfer">Transfer</option>
               </select>

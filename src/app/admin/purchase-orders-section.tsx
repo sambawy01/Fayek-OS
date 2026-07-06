@@ -61,28 +61,28 @@ export default function PurchaseOrdersSection({
   return (
     <section>
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="font-serif text-2xl text-[#38492E]">Purchase Orders</h2>
+        <h2 className="font-serif text-2xl text-[#0E2A47]">Purchase Orders</h2>
         {!adding && <button className={primaryBtn} onClick={() => setAdding(true)}>New purchase order</button>}
       </div>
-      <p className="mb-4 text-sm text-[#5E6B4F]">
+      <p className="mb-4 text-sm text-[#5B7186]">
         Generate a customer purchase order from the catalogue. New orders enter the order book as{" "}
         <b>open</b> and reflect in Finance for invoicing &amp; fulfilment.
       </p>
 
-      {error && <div className="mb-4 rounded-2xl border border-[#B5483A]/30 bg-[#FBF4E6] px-4 py-2 text-sm text-[#B5483A]">{error}</div>}
+      {error && <div className="mb-4 rounded-2xl border border-[#CC4038]/30 bg-[#F4F8FD] px-4 py-2 text-sm text-[#CC4038]">{error}</div>}
 
       {adding && (
-        <div className="mb-6 rounded-2xl border border-[#38492E]/10 bg-[#FBF4E6] px-5 py-4">
+        <div className="mb-6 rounded-2xl border border-[#0E2A47]/10 bg-[#F4F8FD] px-5 py-4">
           <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="sm:col-span-2"><CompanySearch value={company.name} onPick={(name, id) => setCompany({ name, id })} /></div>
-            <div><label className="mb-1 block text-xs uppercase tracking-[0.08em] text-[#5E6B4F]">Customer PO reference</label>
+            <div><label className="mb-1 block text-xs uppercase tracking-[0.08em] text-[#5B7186]">Customer PO reference</label>
               <input className={inputCls} placeholder="e.g. their internal PO #" value={poRef} onChange={(e) => setPoRef(e.target.value)} /></div>
-            <div><label className="mb-1 block text-xs uppercase tracking-[0.08em] text-[#5E6B4F]">Required by</label>
+            <div><label className="mb-1 block text-xs uppercase tracking-[0.08em] text-[#5B7186]">Required by</label>
               <input className={inputCls} type="date" value={needBy} onChange={(e) => setNeedBy(e.target.value)} /></div>
           </div>
           <LineEditor products={products} priceBySlug={priceBySlug} lines={lines} setLines={setLines} />
           <div className="mt-3">
-            <label className="mb-1 block text-xs uppercase tracking-[0.08em] text-[#5E6B4F]">Notes / delivery instructions</label>
+            <label className="mb-1 block text-xs uppercase tracking-[0.08em] text-[#5B7186]">Notes / delivery instructions</label>
             <textarea className={inputCls} rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
           </div>
           <div className="mt-3 flex gap-2">
@@ -93,12 +93,12 @@ export default function PurchaseOrdersSection({
       )}
 
       <div className="space-y-2">
-        {items.length === 0 && <div className="rounded-2xl border border-dashed border-[#38492E]/15 bg-[#FBF4E6]/60 px-6 py-8 text-center text-sm text-[#5E6B4F]">No purchase orders yet.</div>}
+        {items.length === 0 && <div className="rounded-2xl border border-dashed border-[#0E2A47]/15 bg-[#F4F8FD]/60 px-6 py-8 text-center text-sm text-[#5B7186]">No purchase orders yet.</div>}
         {items.map((po) => (
-          <div key={po.id} className="flex items-center justify-between gap-3 rounded-2xl border border-[#38492E]/10 bg-white px-4 py-3">
+          <div key={po.id} className="flex items-center justify-between gap-3 rounded-2xl border border-[#0E2A47]/10 bg-white px-4 py-3">
             <div className="min-w-0">
-              <p className="text-sm font-medium text-[#38492E]">PO-{po.id} · {po.companyName} · {egp(po.totalEgp)}</p>
-              {po.notes && <p className="truncate text-xs text-[#5E6B4F]">{po.notes}</p>}
+              <p className="text-sm font-medium text-[#0E2A47]">PO-{po.id} · {po.companyName} · {egp(po.totalEgp)}</p>
+              {po.notes && <p className="truncate text-xs text-[#5B7186]">{po.notes}</p>}
             </div>
             <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${PO_STATUS[po.status] ?? ""}`}>{po.status}</span>
           </div>

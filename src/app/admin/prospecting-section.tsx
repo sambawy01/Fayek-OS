@@ -3,14 +3,14 @@
 import { useState } from "react";
 import type { Lead, LeadStatus } from "@/lib/leads";
 
-const primaryBtn = "rounded-full bg-[#357F75] px-4 py-2 text-sm font-medium text-[#FBF4E6] transition hover:opacity-90 disabled:opacity-50";
-const subtleBtn = "rounded-full border border-[#38492E]/15 bg-[#FBF4E6] px-3 py-1.5 text-sm text-[#38492E] transition hover:bg-[#EFE7D6] disabled:opacity-50";
+const primaryBtn = "rounded-full bg-[#1668C7] px-4 py-2 text-sm font-medium text-[#F4F8FD] transition hover:opacity-90 disabled:opacity-50";
+const subtleBtn = "rounded-full border border-[#0E2A47]/15 bg-[#F4F8FD] px-3 py-1.5 text-sm text-[#0E2A47] transition hover:bg-[#E4EEFA] disabled:opacity-50";
 
 const STATUS_STYLE: Record<string, string> = {
-  pending: "bg-[#C08A2D]/15 text-[#8A6418]",
-  approved: "bg-[#357F75]/15 text-[#2A6A61]",
-  rejected: "bg-[#B5483A]/12 text-[#B5483A]",
-  sent: "bg-[#38492E]/10 text-[#5E6B4F]",
+  pending: "bg-[#D6941F]/15 text-[#8A5A12]",
+  approved: "bg-[#1668C7]/15 text-[#0E7490]",
+  rejected: "bg-[#CC4038]/12 text-[#CC4038]",
+  sent: "bg-[#0E2A47]/10 text-[#5B7186]",
 };
 
 async function readError(res: Response): Promise<string> {
@@ -59,20 +59,20 @@ export default function ProspectingSection({
   return (
     <section>
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="font-serif text-2xl text-[#38492E]">Prospecting</h2>
+        <h2 className="font-serif text-2xl text-[#0E2A47]">Prospecting</h2>
         {canRun && <button className={primaryBtn} disabled={busy} onClick={() => void runNow()}>{busy ? "Researching…" : "Run discovery now"}</button>}
       </div>
-      <p className="mb-3 text-sm text-[#5E6B4F]">
+      <p className="mb-3 text-sm text-[#5B7186]">
         Every day the AI agent finds new potential customers across Egyptian industry, researches each one, and drafts a tailored branded outreach — ready here for your approval before sending.
       </p>
 
-      {msg && <div className="mb-3 rounded-2xl border border-[#357F75]/30 bg-[#FBF4E6] px-4 py-2 text-sm text-[#2A6A61]">{msg}</div>}
-      {error && <div className="mb-3 rounded-2xl border border-[#B5483A]/30 bg-[#FBF4E6] px-4 py-2 text-sm text-[#B5483A]">{error}</div>}
+      {msg && <div className="mb-3 rounded-2xl border border-[#1668C7]/30 bg-[#F4F8FD] px-4 py-2 text-sm text-[#0E7490]">{msg}</div>}
+      {error && <div className="mb-3 rounded-2xl border border-[#CC4038]/30 bg-[#F4F8FD] px-4 py-2 text-sm text-[#CC4038]">{error}</div>}
 
       <div className="mb-4 flex flex-wrap gap-2">
         {(["pending", "approved", "rejected", "all"] as const).map((f) => (
           <button key={f} onClick={() => setFilter(f)}
-            className={`rounded-full px-3 py-1.5 text-sm capitalize transition ${filter === f ? "bg-[#357F75] text-[#FBF4E6]" : "border border-[#38492E]/15 bg-[#FBF4E6] text-[#38492E] hover:bg-[#EFE7D6]"}`}>
+            className={`rounded-full px-3 py-1.5 text-sm capitalize transition ${filter === f ? "bg-[#1668C7] text-[#F4F8FD]" : "border border-[#0E2A47]/15 bg-[#F4F8FD] text-[#0E2A47] hover:bg-[#E4EEFA]"}`}>
             {f}{f !== "all" && counts[f] ? ` (${counts[f]})` : ""}
           </button>
         ))}
@@ -80,7 +80,7 @@ export default function ProspectingSection({
 
       <div className="space-y-3">
         {shown.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-[#38492E]/15 bg-[#FBF4E6]/60 px-6 py-8 text-center text-sm text-[#5E6B4F]">
+          <div className="rounded-2xl border border-dashed border-[#0E2A47]/15 bg-[#F4F8FD]/60 px-6 py-8 text-center text-sm text-[#5B7186]">
             No {filter === "all" ? "" : filter} leads yet.{canRun && filter !== "rejected" ? " Use “Run discovery now” or wait for the daily run." : ""}
           </div>
         ) : shown.map((l) => <LeadCard key={l.id} lead={l} onStatus={setStatus} onError={setError} />)}
@@ -107,30 +107,30 @@ function LeadCard({ lead, onStatus, onError }: { lead: Lead; onStatus: (id: numb
   }
 
   return (
-    <div className="rounded-2xl border border-[#38492E]/10 bg-white px-4 py-3">
+    <div className="rounded-2xl border border-[#0E2A47]/10 bg-white px-4 py-3">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-sm font-medium text-[#38492E]">{lead.companyName}</p>
-          <p className="text-xs text-[#5E6B4F]">
+          <p className="text-sm font-medium text-[#0E2A47]">{lead.companyName}</p>
+          <p className="text-xs text-[#5B7186]">
             {lead.sector}{lead.location ? ` · ${lead.location}` : ""}
-            {lead.website && <> · <a href={lead.website} target="_blank" rel="noreferrer" className="text-[#357F75] hover:underline">website</a></>}
+            {lead.website && <> · <a href={lead.website} target="_blank" rel="noreferrer" className="text-[#1668C7] hover:underline">website</a></>}
           </p>
         </div>
         <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_STYLE[lead.status] ?? ""}`}>{lead.status}</span>
       </div>
 
       {(lead.contactEmail || lead.contactPhone) && (
-        <p className="mt-1 text-xs text-[#5E6B4F]">
-          {lead.contactEmail && <>Email: <span className="text-[#38492E]">{lead.contactEmail}</span></>}
+        <p className="mt-1 text-xs text-[#5B7186]">
+          {lead.contactEmail && <>Email: <span className="text-[#0E2A47]">{lead.contactEmail}</span></>}
           {lead.contactEmail && lead.contactPhone && " · "}
-          {lead.contactPhone && <>Phone: <span className="text-[#38492E]">{lead.contactPhone}</span></>}
+          {lead.contactPhone && <>Phone: <span className="text-[#0E2A47]">{lead.contactPhone}</span></>}
         </p>
       )}
-      {lead.rationale && <p className="mt-1 text-xs italic text-[#5E6B4F]">{lead.rationale}</p>}
+      {lead.rationale && <p className="mt-1 text-xs italic text-[#5B7186]">{lead.rationale}</p>}
       {lead.relevantProducts.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1.5">
           {lead.relevantProducts.map((p, i) => (
-            <span key={i} className="rounded-full bg-[#38492E]/8 px-2 py-0.5 text-xs text-[#38492E]">{p}</span>
+            <span key={i} className="rounded-full bg-[#0E2A47]/8 px-2 py-0.5 text-xs text-[#0E2A47]">{p}</span>
           ))}
         </div>
       )}
@@ -152,9 +152,9 @@ function LeadCard({ lead, onStatus, onError }: { lead: Lead; onStatus: (id: numb
       </div>
 
       {open && (
-        <div className="mt-3 border-t border-[#38492E]/10 pt-3">
-          <p className="mb-2 text-sm font-medium text-[#38492E]">Subject: {lead.draftSubject}</p>
-          <div className="overflow-hidden rounded-xl border border-[#38492E]/10">
+        <div className="mt-3 border-t border-[#0E2A47]/10 pt-3">
+          <p className="mb-2 text-sm font-medium text-[#0E2A47]">Subject: {lead.draftSubject}</p>
+          <div className="overflow-hidden rounded-xl border border-[#0E2A47]/10">
             <iframe title={`Draft for ${lead.companyName}`} srcDoc={lead.draftHtml} className="h-[440px] w-full bg-white" />
           </div>
         </div>

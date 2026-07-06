@@ -7,18 +7,18 @@ import ProductCombobox from "./product-combobox";
 export interface ProductOption { slug: string; name: string }
 
 const inputCls =
-  "w-full rounded-xl border border-[#38492E]/15 bg-white px-3 py-2 text-sm text-[#38492E] outline-none focus:border-[#357F75]";
+  "w-full rounded-xl border border-[#0E2A47]/15 bg-white px-3 py-2 text-sm text-[#0E2A47] outline-none focus:border-[#1668C7]";
 const primaryBtn =
-  "rounded-full bg-[#357F75] px-4 py-2 text-sm font-medium text-[#FBF4E6] transition hover:opacity-90 disabled:opacity-50";
+  "rounded-full bg-[#1668C7] px-4 py-2 text-sm font-medium text-[#F4F8FD] transition hover:opacity-90 disabled:opacity-50";
 const subtleBtn =
-  "rounded-full border border-[#38492E]/15 bg-[#FBF4E6] px-3 py-1.5 text-sm text-[#38492E] transition hover:bg-[#EFE7D6] disabled:opacity-50";
+  "rounded-full border border-[#0E2A47]/15 bg-[#F4F8FD] px-3 py-1.5 text-sm text-[#0E2A47] transition hover:bg-[#E4EEFA] disabled:opacity-50";
 
 const STATUS_STYLE: Record<string, string> = {
-  dispatched: "bg-[#C08A2D]/15 text-[#8A6418]",
-  received: "bg-[#357F75]/15 text-[#2A6A61]",
-  pending_approval: "bg-[#B5483A]/15 text-[#B5483A]",
-  resolved: "bg-[#357F75]/15 text-[#2A6A61]",
-  rejected: "bg-[#38492E]/10 text-[#5E6B4F]",
+  dispatched: "bg-[#D6941F]/15 text-[#8A5A12]",
+  received: "bg-[#1668C7]/15 text-[#0E7490]",
+  pending_approval: "bg-[#CC4038]/15 text-[#CC4038]",
+  resolved: "bg-[#1668C7]/15 text-[#0E7490]",
+  rejected: "bg-[#0E2A47]/10 text-[#5B7186]",
 };
 const statusLabel = (s: string) =>
   ({ dispatched: "Dispatched", received: "Received", pending_approval: "Pending approval", resolved: "Resolved", rejected: "Rejected" } as Record<string, string>)[s] ?? s;
@@ -78,22 +78,22 @@ export default function ReceivingSection({
   return (
     <section>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="font-serif text-2xl text-[#38492E]">Receiving</h2>
+        <h2 className="font-serif text-2xl text-[#0E2A47]">Receiving</h2>
         {canCreate && !adding && (
           <button className={primaryBtn} onClick={() => setAdding(true)}>New dispatch</button>
         )}
       </div>
-      <p className="mb-4 text-sm text-[#5E6B4F]">
+      <p className="mb-4 text-sm text-[#5B7186]">
         Factory batches dispatched to the warehouse. Inventory receives and
         counts each; any discrepancy is escalated to the Owner/Admin for a decision.
       </p>
 
       {error && (
-        <div className="mb-4 rounded-2xl border border-[#B5483A]/30 bg-[#FBF4E6] px-5 py-3 text-sm text-[#B5483A]">{error}</div>
+        <div className="mb-4 rounded-2xl border border-[#CC4038]/30 bg-[#F4F8FD] px-5 py-3 text-sm text-[#CC4038]">{error}</div>
       )}
 
       {adding && (
-        <div className="mb-6 rounded-2xl border border-[#38492E]/10 bg-[#FBF4E6] px-5 py-4">
+        <div className="mb-6 rounded-2xl border border-[#0E2A47]/10 bg-[#F4F8FD] px-5 py-4">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <input className={inputCls} placeholder="Supplier / factory" value={head.supplier}
               onChange={(e) => setHead({ ...head, supplier: e.target.value })} />
@@ -102,7 +102,7 @@ export default function ReceivingSection({
             <input className={inputCls} placeholder="Notes" value={head.notes}
               onChange={(e) => setHead({ ...head, notes: e.target.value })} />
           </div>
-          <p className="mb-2 mt-4 text-xs font-medium uppercase tracking-[0.08em] text-[#5E6B4F]">Products dispatched</p>
+          <p className="mb-2 mt-4 text-xs font-medium uppercase tracking-[0.08em] text-[#5B7186]">Products dispatched</p>
           <div className="space-y-2">
             {lines.map((l, i) => (
               <div key={i} className="flex items-center gap-2">
@@ -129,7 +129,7 @@ export default function ReceivingSection({
 
       <div className="space-y-2">
         {batches.length === 0 && (
-          <div className="rounded-2xl border border-dashed border-[#38492E]/15 bg-[#FBF4E6]/60 px-6 py-8 text-center text-sm text-[#5E6B4F]">
+          <div className="rounded-2xl border border-dashed border-[#0E2A47]/15 bg-[#F4F8FD]/60 px-6 py-8 text-center text-sm text-[#5B7186]">
             No batches yet.
           </div>
         )}
@@ -190,15 +190,15 @@ function BatchRow({
   }
 
   return (
-    <div className="rounded-2xl border border-[#38492E]/10 bg-white px-4 py-3">
+    <div className="rounded-2xl border border-[#0E2A47]/10 bg-white px-4 py-3">
       <button className="flex w-full items-center justify-between gap-3 text-left" onClick={() => void loadDetail()}>
         <div className="min-w-0">
-          <p className="text-sm font-medium text-[#38492E]">
+          <p className="text-sm font-medium text-[#0E2A47]">
             Batch #{batch.id}
-            {batch.supplier && <span className="text-[#5E6B4F]"> · {batch.supplier}</span>}
-            {batch.reference && <span className="text-[#5E6B4F]"> · {batch.reference}</span>}
+            {batch.supplier && <span className="text-[#5B7186]"> · {batch.supplier}</span>}
+            {batch.reference && <span className="text-[#5B7186]"> · {batch.reference}</span>}
           </p>
-          <p className="text-xs text-[#5E6B4F]">{new Date(batch.dispatchedAt).toLocaleDateString()}</p>
+          <p className="text-xs text-[#5B7186]">{new Date(batch.dispatchedAt).toLocaleDateString()}</p>
         </div>
         <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_STYLE[batch.status] ?? ""}`}>
           {statusLabel(batch.status)}
@@ -206,27 +206,27 @@ function BatchRow({
       </button>
 
       {open && detail && (
-        <div className="mt-3 border-t border-[#38492E]/10 pt-3">
-          {error && <p className="mb-2 text-sm text-[#B5483A]">{error}</p>}
-          {outcome && <p className="mb-2 text-sm text-[#2A6A61]">{outcome}</p>}
+        <div className="mt-3 border-t border-[#0E2A47]/10 pt-3">
+          {error && <p className="mb-2 text-sm text-[#CC4038]">{error}</p>}
+          {outcome && <p className="mb-2 text-sm text-[#0E7490]">{outcome}</p>}
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-xs uppercase tracking-[0.06em] text-[#5E6B4F]">
+              <tr className="text-left text-xs uppercase tracking-[0.06em] text-[#5B7186]">
                 <th className="pb-1">Product</th><th className="pb-1 text-center">Expected</th><th className="pb-1 text-center">Received</th>
               </tr>
             </thead>
             <tbody>
               {detail.lines.map((l) => (
-                <tr key={l.id} className="border-t border-[#38492E]/5">
-                  <td className="py-1.5 text-[#38492E]">{l.name}</td>
-                  <td className="py-1.5 text-center text-[#5E6B4F]">{l.expectedQty}</td>
+                <tr key={l.id} className="border-t border-[#0E2A47]/5">
+                  <td className="py-1.5 text-[#0E2A47]">{l.name}</td>
+                  <td className="py-1.5 text-center text-[#5B7186]">{l.expectedQty}</td>
                   <td className="py-1.5 text-center">
                     {batch.status === "dispatched" && canReceive ? (
-                      <input className="w-20 rounded-lg border border-[#38492E]/15 bg-white px-2 py-1 text-center text-sm"
+                      <input className="w-20 rounded-lg border border-[#0E2A47]/15 bg-white px-2 py-1 text-center text-sm"
                         inputMode="numeric" value={recv[l.id] ?? ""}
                         onChange={(e) => setRecv({ ...recv, [l.id]: e.target.value })} />
                     ) : (
-                      <span className={l.receivedQty !== null && l.receivedQty !== l.expectedQty ? "font-medium text-[#B5483A]" : "text-[#38492E]"}>
+                      <span className={l.receivedQty !== null && l.receivedQty !== l.expectedQty ? "font-medium text-[#CC4038]" : "text-[#0E2A47]"}>
                         {l.receivedQty ?? "—"}
                       </span>
                     )}
@@ -243,7 +243,7 @@ function BatchRow({
             </div>
           )}
           {batch.status === "dispatched" && !canReceive && (
-            <p className="mt-3 text-xs text-[#5E6B4F]">Awaiting warehouse receipt.</p>
+            <p className="mt-3 text-xs text-[#5B7186]">Awaiting warehouse receipt.</p>
           )}
         </div>
       )}

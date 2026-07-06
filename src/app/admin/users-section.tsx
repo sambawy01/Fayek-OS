@@ -14,11 +14,11 @@ export interface AdminUser {
 }
 
 const inputCls =
-  "w-full rounded-xl border border-[#38492E]/15 bg-white px-3 py-2 text-sm text-[#38492E] outline-none focus:border-[#357F75]";
+  "w-full rounded-xl border border-[#0E2A47]/15 bg-white px-3 py-2 text-sm text-[#0E2A47] outline-none focus:border-[#1668C7]";
 const primaryBtn =
-  "rounded-full bg-[#357F75] px-4 py-2 text-sm font-medium text-[#FBF4E6] transition hover:opacity-90 disabled:opacity-50";
+  "rounded-full bg-[#1668C7] px-4 py-2 text-sm font-medium text-[#F4F8FD] transition hover:opacity-90 disabled:opacity-50";
 const subtleBtn =
-  "rounded-full border border-[#38492E]/15 bg-[#FBF4E6] px-3 py-1.5 text-sm text-[#38492E] transition hover:bg-[#EFE7D6] disabled:opacity-50";
+  "rounded-full border border-[#0E2A47]/15 bg-[#F4F8FD] px-3 py-1.5 text-sm text-[#0E2A47] transition hover:bg-[#E4EEFA] disabled:opacity-50";
 
 async function readError(res: Response): Promise<string> {
   const data = (await res.json().catch(() => ({}))) as { error?: string };
@@ -139,31 +139,31 @@ export default function UsersSection({
   return (
     <section>
       <div className="mb-4">
-        <h2 className="font-serif text-2xl text-[#38492E]">Users</h2>
-        <p className="mt-1 text-sm text-[#5E6B4F]">
+        <h2 className="font-serif text-2xl text-[#0E2A47]">Users</h2>
+        <p className="mt-1 text-sm text-[#5B7186]">
           Staff logins and their roles. Each person signs in with their own
           username and password.
         </p>
       </div>
 
       {error && (
-        <div className="mb-4 rounded-2xl border border-[#B5483A]/30 bg-[#FBF4E6] px-5 py-3 text-sm text-[#B5483A]">
+        <div className="mb-4 rounded-2xl border border-[#CC4038]/30 bg-[#F4F8FD] px-5 py-3 text-sm text-[#CC4038]">
           {error}
         </div>
       )}
 
       {/* create */}
-      <div className="mb-6 rounded-2xl border border-[#38492E]/10 bg-[#FBF4E6] px-5 py-4">
+      <div className="mb-6 rounded-2xl border border-[#0E2A47]/10 bg-[#F4F8FD] px-5 py-4">
         <div className="mb-3 flex items-center justify-between">
-          <p className="text-xs font-medium uppercase tracking-[0.08em] text-[#5E6B4F]">
+          <p className="text-xs font-medium uppercase tracking-[0.08em] text-[#5B7186]">
             Add a user
           </p>
-          <span className={`text-xs ${atLimit ? "text-[#B5483A]" : "text-[#5E6B4F]"}`}>
+          <span className={`text-xs ${atLimit ? "text-[#CC4038]" : "text-[#5B7186]"}`}>
             {employeeCount} / {MAX_EMPLOYEES} employees
           </span>
         </div>
         {atLimit ? (
-          <p className="text-sm text-[#5E6B4F]">
+          <p className="text-sm text-[#5B7186]">
             Employee limit reached ({MAX_EMPLOYEES}). Delete or reassign a user to add another.
           </p>
         ) : (
@@ -199,27 +199,27 @@ export default function UsersSection({
           const canEdit =
             (u.role !== "owner" || currentRole === "owner") && !isSelf;
           return (
-            <div key={u.id} className="rounded-2xl border border-[#38492E]/10 bg-white px-4 py-3">
+            <div key={u.id} className="rounded-2xl border border-[#0E2A47]/10 bg-white px-4 py-3">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-[#38492E]">
+                  <p className="text-sm font-medium text-[#0E2A47]">
                     {u.name || u.username}
-                    <span className="ml-2 rounded-full bg-[#38492E]/10 px-2 py-0.5 text-xs text-[#38492E]">
+                    <span className="ml-2 rounded-full bg-[#0E2A47]/10 px-2 py-0.5 text-xs text-[#0E2A47]">
                       {u.roleLabel}
                     </span>
                     {!u.active && (
-                      <span className="ml-2 rounded-full bg-[#B5483A]/12 px-2 py-0.5 text-xs text-[#B5483A]">
+                      <span className="ml-2 rounded-full bg-[#CC4038]/12 px-2 py-0.5 text-xs text-[#CC4038]">
                         deactivated
                       </span>
                     )}
-                    {isSelf && <span className="ml-2 text-xs text-[#5E6B4F]">(you)</span>}
+                    {isSelf && <span className="ml-2 text-xs text-[#5B7186]">(you)</span>}
                   </p>
-                  <p className="text-xs text-[#5E6B4F]">@{u.username}</p>
+                  <p className="text-xs text-[#5B7186]">@{u.username}</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   {canEdit && (
                     <select
-                      className="rounded-xl border border-[#38492E]/15 bg-white px-2 py-1 text-sm text-[#38492E]"
+                      className="rounded-xl border border-[#0E2A47]/15 bg-white px-2 py-1 text-sm text-[#0E2A47]"
                       value={u.role} disabled={busy}
                       onChange={(e) => void patch(u.id, { role: e.target.value })}>
                       {assignableRoles.map((r) => (
@@ -240,21 +240,21 @@ export default function UsersSection({
                   )}
                   {canEdit && (
                     <button
-                      className="rounded-full border border-[#B5483A]/40 bg-[#FBF4E6] px-3 py-1.5 text-sm text-[#B5483A] transition hover:bg-[#F3E4E1] disabled:opacity-50"
+                      className="rounded-full border border-[#CC4038]/40 bg-[#F4F8FD] px-3 py-1.5 text-sm text-[#CC4038] transition hover:bg-[#FBEAE8] disabled:opacity-50"
                       disabled={busy} onClick={() => void del(u)}>Delete</button>
                   )}
                 </div>
               </div>
               {editId === u.id && (
-                <div className="mt-3 border-t border-[#38492E]/10 pt-3">
+                <div className="mt-3 border-t border-[#0E2A47]/10 pt-3">
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div>
-                      <label className="mb-1 block text-xs uppercase tracking-[0.08em] text-[#5E6B4F]">Username</label>
+                      <label className="mb-1 block text-xs uppercase tracking-[0.08em] text-[#5B7186]">Username</label>
                       <input className={inputCls} value={editForm.username}
                         onChange={(e) => setEditForm({ ...editForm, username: e.target.value })} />
                     </div>
                     <div>
-                      <label className="mb-1 block text-xs uppercase tracking-[0.08em] text-[#5E6B4F]">Full name</label>
+                      <label className="mb-1 block text-xs uppercase tracking-[0.08em] text-[#5B7186]">Full name</label>
                       <input className={inputCls} value={editForm.name}
                         onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} />
                     </div>

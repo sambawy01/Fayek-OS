@@ -313,26 +313,46 @@ export default async function AdminPage() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-10 sm:px-6">
-      <header className="mb-8">
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <div className="font-serif text-2xl tracking-tight text-[#38492E]">
-            Fayek Abrasives
+    <main className="mx-auto w-full max-w-4xl flex-1 px-4 py-8 sm:px-6">
+      <header className="mb-7">
+        {/* Instrument-panel top bar: brand mark + operator identity */}
+        <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[#0E2A47]/10 bg-white px-5 py-3.5 shadow-sm shadow-[#0E2A47]/5">
+          <div className="flex items-center gap-3">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="https://www.fayekabrasives.com/assets/images/logo.jpg"
+              alt="Fayek Abrasives"
+              className="h-11 w-11 rounded-lg object-contain ring-1 ring-[#0E2A47]/10"
+            />
+            <div className="leading-tight">
+              <div className="font-serif text-lg font-semibold tracking-wide text-[#0E2A47]">
+                FAYEK ABRASIVES
+              </div>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#1668C7]">
+                Operations OS
+              </div>
+            </div>
           </div>
-          <div className="flex items-center gap-3 text-sm text-[#5E6B4F]">
-            <span>
-              {session.name || session.username}
-              <span className="ml-1 rounded-full bg-[#38492E]/10 px-2 py-0.5 text-xs text-[#38492E]">
+          <div className="flex items-center gap-3 text-sm text-[#5B7186]">
+            <span className="flex items-center gap-2">
+              <span className="hidden sm:inline">{session.name || session.username}</span>
+              <span className="rounded-md bg-[#E4EEFA] px-2 py-0.5 text-xs font-semibold text-[#1668C7]">
                 {ROLE_LABELS[role]}
               </span>
             </span>
             <SignOut label={`Signed in as ${session.username}`} />
           </div>
         </div>
-        <h1 className="mt-2 font-serif text-4xl text-[#38492E]">Store admin</h1>
-        <p className="mt-2 text-sm text-[#5E6B4F]">
-          Times shown in Cairo time (Africa/Cairo).
-        </p>
+
+        <div className="mt-6 flex items-center gap-3">
+          <span className="h-6 w-1.5 rounded-full bg-[#1668C7]" />
+          <div>
+            <h1 className="font-serif text-3xl text-[#0E2A47]">Operations Console</h1>
+            <p className="mt-0.5 text-sm text-[#5B7186]">
+              Cairo time (Africa/Cairo) · live operations, inventory &amp; finance
+            </p>
+          </div>
+        </div>
       </header>
 
       <AdminTabs tabs={tabs} />

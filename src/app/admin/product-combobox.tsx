@@ -34,7 +34,7 @@ export default function ProductCombobox({
   return (
     <div className="relative">
       <input
-        className="w-full rounded-xl border border-[#38492E]/15 bg-white px-3 py-2 text-sm text-[#38492E] outline-none focus:border-[#357F75]"
+        className="w-full rounded-xl border border-[#0E2A47]/15 bg-white px-3 py-2 text-sm text-[#0E2A47] outline-none focus:border-[#1668C7]"
         value={open ? q : selected?.name ?? ""}
         placeholder={placeholder}
         onChange={(e) => { setQ(e.target.value); setOpen(true); }}
@@ -42,9 +42,9 @@ export default function ProductCombobox({
         onBlur={() => setTimeout(() => setOpen(false), 150)}
       />
       {open && (
-        <div className="absolute z-20 mt-1 max-h-72 w-full overflow-auto rounded-xl border border-[#38492E]/15 bg-white shadow-lg">
+        <div className="absolute z-20 mt-1 max-h-72 w-full overflow-auto rounded-xl border border-[#0E2A47]/15 bg-white shadow-lg">
           {shown.length === 0 ? (
-            <div className="px-3 py-3 text-sm text-[#5E6B4F]">No matches</div>
+            <div className="px-3 py-3 text-sm text-[#5B7186]">No matches</div>
           ) : (
             shown.map((p) => (
               <button
@@ -52,12 +52,12 @@ export default function ProductCombobox({
                 type="button"
                 // onMouseDown fires before the input's blur, so the click lands.
                 onMouseDown={(e) => { e.preventDefault(); onChange(p.slug); setOpen(false); }}
-                className={`block w-full border-b border-[#38492E]/8 px-3 py-2.5 text-left last:border-0 hover:bg-[#EFE7D6] ${
-                  p.slug === value ? "bg-[#EFE7D6]" : ""
+                className={`block w-full border-b border-[#0E2A47]/8 px-3 py-2.5 text-left last:border-0 hover:bg-[#E4EEFA] ${
+                  p.slug === value ? "bg-[#E4EEFA]" : ""
                 }`}
               >
-                <span className="block text-sm font-medium leading-snug text-[#38492E]">{p.name}</span>
-                <span className="mt-0.5 block font-mono text-[11px] text-[#5E6B4F]">{p.slug}</span>
+                <span className="block text-sm font-medium leading-snug text-[#0E2A47]">{p.name}</span>
+                <span className="mt-0.5 block font-mono text-[11px] text-[#5B7186]">{p.slug}</span>
               </button>
             ))
           )}

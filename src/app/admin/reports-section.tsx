@@ -11,9 +11,9 @@ const egp = (n: number) => `${n.toLocaleString("en-EG")} EGP`;
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-[#38492E]/10 bg-white px-4 py-3">
-      <p className="text-xs uppercase tracking-[0.06em] text-[#5E6B4F]">{label}</p>
-      <p className="mt-0.5 font-serif text-2xl text-[#38492E]">{value}</p>
+    <div className="rounded-xl border border-[#0E2A47]/10 bg-white px-4 py-3">
+      <p className="text-xs uppercase tracking-[0.06em] text-[#5B7186]">{label}</p>
+      <p className="mt-0.5 font-serif text-2xl text-[#0E2A47]">{value}</p>
     </div>
   );
 }
@@ -38,15 +38,15 @@ function AiAnalysis({ kind, data }: { kind: string; data: unknown }) {
     }
   }
   return (
-    <div className="mt-3 rounded-xl border border-[#357F75]/20 bg-white px-3 py-2">
-      <p className="text-xs font-medium uppercase tracking-[0.08em] text-[#357F75]">AI analysis</p>
+    <div className="mt-3 rounded-xl border border-[#1668C7]/20 bg-white px-3 py-2">
+      <p className="text-xs font-medium uppercase tracking-[0.08em] text-[#1668C7]">AI analysis</p>
       {text ? (
-        <p className="mt-1 whitespace-pre-wrap text-sm text-[#38492E]">{text}</p>
+        <p className="mt-1 whitespace-pre-wrap text-sm text-[#0E2A47]">{text}</p>
       ) : (
         <button
           onClick={() => void run()}
           disabled={busy}
-          className="mt-1 rounded-full border border-[#38492E]/15 bg-[#FBF4E6] px-3 py-1.5 text-sm text-[#38492E] transition hover:bg-[#EFE7D6] disabled:opacity-50"
+          className="mt-1 rounded-full border border-[#0E2A47]/15 bg-[#F4F8FD] px-3 py-1.5 text-sm text-[#0E2A47] transition hover:bg-[#E4EEFA] disabled:opacity-50"
         >
           {busy ? "Analysing…" : "Analyse with AI"}
         </button>
@@ -66,11 +66,11 @@ export default function ReportsSection({
 }) {
   return (
     <section className="space-y-8">
-      <h2 className="font-serif text-2xl text-[#38492E]">Reports</h2>
+      <h2 className="font-serif text-2xl text-[#0E2A47]">Reports</h2>
 
       {sales && (
         <div>
-          <h3 className="mb-3 font-serif text-lg text-[#38492E]">
+          <h3 className="mb-3 font-serif text-lg text-[#0E2A47]">
             Sales — last {sales.periodDays} days
           </h3>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-2">
@@ -78,10 +78,10 @@ export default function ReportsSection({
             <Stat label="Orders" value={String(sales.orderCount)} />
           </div>
           {sales.topProducts.length > 0 && (
-            <div className="mt-3 rounded-xl border border-[#38492E]/10 bg-white px-4 py-3">
-              <p className="mb-1 text-xs uppercase tracking-[0.06em] text-[#5E6B4F]">Top products</p>
+            <div className="mt-3 rounded-xl border border-[#0E2A47]/10 bg-white px-4 py-3">
+              <p className="mb-1 text-xs uppercase tracking-[0.06em] text-[#5B7186]">Top products</p>
               {sales.topProducts.map((p) => (
-                <p key={p.name} className="text-sm text-[#38492E]">{p.name} · {p.qty} sold</p>
+                <p key={p.name} className="text-sm text-[#0E2A47]">{p.name} · {p.qty} sold</p>
               ))}
             </div>
           )}
@@ -91,17 +91,17 @@ export default function ReportsSection({
 
       {inventory && (
         <div>
-          <h3 className="mb-3 font-serif text-lg text-[#38492E]">Inventory</h3>
+          <h3 className="mb-3 font-serif text-lg text-[#0E2A47]">Inventory</h3>
           <div className="grid grid-cols-3 gap-3">
             <Stat label="SKUs" value={String(inventory.totalSkus)} />
             <Stat label="Units in stock" value={inventory.trackedUnits.toLocaleString("en-EG")} />
             <Stat label="Out of stock" value={String(inventory.outOfStock)} />
           </div>
           {inventory.lowStock.length > 0 && (
-            <div className="mt-3 rounded-xl border border-[#C08A2D]/25 bg-[#FBF4E6] px-4 py-3">
-              <p className="mb-1 text-xs uppercase tracking-[0.06em] text-[#8A6418]">Low stock (≤5)</p>
+            <div className="mt-3 rounded-xl border border-[#D6941F]/25 bg-[#F4F8FD] px-4 py-3">
+              <p className="mb-1 text-xs uppercase tracking-[0.06em] text-[#8A5A12]">Low stock (≤5)</p>
               {inventory.lowStock.map((p) => (
-                <p key={p.name} className="text-sm text-[#38492E]">{p.name} · {p.qty} left</p>
+                <p key={p.name} className="text-sm text-[#0E2A47]">{p.name} · {p.qty} left</p>
               ))}
             </div>
           )}
@@ -111,7 +111,7 @@ export default function ReportsSection({
 
       {receivables && (
         <div>
-          <h3 className="mb-3 font-serif text-lg text-[#38492E]">Receivables</h3>
+          <h3 className="mb-3 font-serif text-lg text-[#0E2A47]">Receivables</h3>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Stat label="Outstanding" value={egp(receivables.outstandingEgp)} />
             <Stat label="Open" value={String(receivables.openCount)} />

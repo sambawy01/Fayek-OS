@@ -1,11 +1,14 @@
 import type { Metadata } from "next";
-import { Manrope, Tenor_Sans } from "next/font/google";
+import { Manrope, Saira } from "next/font/google";
 import "./globals.css";
 
-const tenor = Tenor_Sans({
-  weight: "400",
+// Industrial display face — squared, technical letterforms for headings and
+// control-panel labels. Kept on the --font-tenor variable so the theme mapping
+// (font-serif → this face) stays unchanged across the app.
+const tenor = Saira({
+  weight: ["400", "500", "600", "700"],
   variable: "--font-tenor",
-  subsets: ["latin", "cyrillic"],
+  subsets: ["latin", "latin-ext"],
 });
 
 const manrope = Manrope({

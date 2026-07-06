@@ -91,14 +91,14 @@ function labelMethod(m: string): string {
 /* ---------- shared styles ---------- */
 
 const inputCls =
-  "w-full rounded-xl border border-[#38492E]/15 bg-white px-3 py-2 text-sm text-[#38492E] outline-none focus:border-[#357F75]";
+  "w-full rounded-xl border border-[#0E2A47]/15 bg-white px-3 py-2 text-sm text-[#0E2A47] outline-none focus:border-[#1668C7]";
 const labelCls =
-  "mb-1 block text-xs font-medium uppercase tracking-[0.08em] text-[#5E6B4F]";
+  "mb-1 block text-xs font-medium uppercase tracking-[0.08em] text-[#5B7186]";
 const buttonBase =
   "rounded-full px-4 py-2 text-sm font-medium transition-opacity disabled:opacity-50";
-const primaryBtn = `${buttonBase} bg-[#357F75] text-[#FBF4E6] hover:opacity-90`;
-const subtleBtn = `${buttonBase} border border-[#38492E]/15 bg-[#FBF4E6] text-[#38492E] hover:bg-[#EFE7D6]`;
-const dangerBtn = `${buttonBase} border border-[#B5483A]/30 bg-[#FBF4E6] text-[#B5483A] hover:bg-[#B5483A]/5`;
+const primaryBtn = `${buttonBase} bg-[#1668C7] text-[#F4F8FD] hover:opacity-90`;
+const subtleBtn = `${buttonBase} border border-[#0E2A47]/15 bg-[#F4F8FD] text-[#0E2A47] hover:bg-[#E4EEFA]`;
+const dangerBtn = `${buttonBase} border border-[#CC4038]/30 bg-[#F4F8FD] text-[#CC4038] hover:bg-[#CC4038]/5`;
 
 /* ---------- summary cards ---------- */
 
@@ -107,7 +107,7 @@ function SummaryCards({ pnl }: { pnl: PnL }) {
     {
       label: "Revenue",
       value: egp(pnl.revenue.totalEgp),
-      cls: "bg-[#6B7A4F]/10 border-[#6B7A4F]/25 text-[#55633D]",
+      cls: "bg-[#5B7186]/10 border-[#5B7186]/25 text-[#3B5578]",
       sub: [
         `Shop ${egp(pnl.revenue.shopEgp)}`,
         `Other ${egp(pnl.revenue.manualIncomeEgp)}`,
@@ -116,7 +116,7 @@ function SummaryCards({ pnl }: { pnl: PnL }) {
     {
       label: "Expenses",
       value: egp(pnl.expenses.totalEgp),
-      cls: "bg-[#B5483A]/10 border-[#B5483A]/25 text-[#B5483A]",
+      cls: "bg-[#CC4038]/10 border-[#CC4038]/25 text-[#CC4038]",
       sub: pnl.expenses.byCategory
         .slice(0, 3)
         .map((c) => `${labelCategory(c.category)} ${egp(c.amountEgp)}`),
@@ -126,8 +126,8 @@ function SummaryCards({ pnl }: { pnl: PnL }) {
       value: egp(Math.abs(pnl.netEgp)),
       cls:
         pnl.netEgp >= 0
-          ? "bg-[#357F75]/10 border-[#357F75]/25 text-[#357F75]"
-          : "bg-[#B5483A]/10 border-[#B5483A]/25 text-[#B5483A]",
+          ? "bg-[#1668C7]/10 border-[#1668C7]/25 text-[#1668C7]"
+          : "bg-[#CC4038]/10 border-[#CC4038]/25 text-[#CC4038]",
       sub: [`${pnl.counts.revenueOrders} paid orders`],
     },
   ];
@@ -304,8 +304,8 @@ function EntryForm({
   const cats = categoriesFor(form.direction);
 
   return (
-    <div className="rounded-2xl border border-[#357F75]/25 bg-[#FBF4E6] px-5 py-5 shadow-sm">
-      <h3 className="font-serif text-xl text-[#38492E]">
+    <div className="rounded-2xl border border-[#1668C7]/25 bg-[#F4F8FD] px-5 py-5 shadow-sm">
+      <h3 className="font-serif text-xl text-[#0E2A47]">
         {entry ? "Edit entry" : "Add entry"}
       </h3>
 
@@ -386,13 +386,13 @@ function EntryForm({
             ref={fileRef}
             type="file"
             accept="image/jpeg,image/png,image/webp"
-            className="text-sm text-[#5E6B4F] file:mr-3 file:rounded-full file:border-0 file:bg-[#38492E]/10 file:px-4 file:py-2 file:text-sm file:font-medium file:text-[#38492E]"
+            className="text-sm text-[#5B7186] file:mr-3 file:rounded-full file:border-0 file:bg-[#0E2A47]/10 file:px-4 file:py-2 file:text-sm file:font-medium file:text-[#0E2A47]"
             onChange={(e) => {
               const file = e.target.files?.[0];
               if (file) void uploadReceipt(file);
             }}
           />
-          {uploading && <span className="text-sm text-[#5E6B4F]">Uploading…</span>}
+          {uploading && <span className="text-sm text-[#5B7186]">Uploading…</span>}
         </div>
         {form.receiptUrl && (
           <div className="mt-3 flex items-center gap-3">
@@ -400,12 +400,12 @@ function EntryForm({
             <img
               src={photoSrc(form.receiptUrl)}
               alt="Receipt preview"
-              className="h-20 w-20 rounded-xl border border-[#38492E]/10 object-cover"
+              className="h-20 w-20 rounded-xl border border-[#0E2A47]/10 object-cover"
             />
             <button
               type="button"
               onClick={() => set({ receiptUrl: "" })}
-              className="text-sm text-[#B5483A] underline"
+              className="text-sm text-[#CC4038] underline"
             >
               Remove
             </button>
@@ -413,7 +413,7 @@ function EntryForm({
         )}
       </div>
 
-      {error && <p className="mt-3 text-sm text-[#B5483A]">{error}</p>}
+      {error && <p className="mt-3 text-sm text-[#CC4038]">{error}</p>}
 
       <div className="mt-5 flex flex-wrap gap-2">
         <button type="button" disabled={busy || uploading} onClick={() => void submit()} className={primaryBtn}>
@@ -472,14 +472,14 @@ function EntryRow({
 
   const isExpense = entry.direction === "expense";
   return (
-    <article className="rounded-2xl border border-[#38492E]/10 bg-[#FBF4E6] px-4 py-3 shadow-sm">
+    <article className="rounded-2xl border border-[#0E2A47]/10 bg-[#F4F8FD] px-4 py-3 shadow-sm">
       <div className="flex items-start gap-3">
         {entry.receiptUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={photoSrc(entry.receiptUrl)}
             alt="Receipt"
-            className="h-12 w-12 shrink-0 rounded-lg border border-[#38492E]/10 object-cover"
+            className="h-12 w-12 shrink-0 rounded-lg border border-[#0E2A47]/10 object-cover"
             loading="lazy"
           />
         ) : null}
@@ -488,21 +488,21 @@ function EntryRow({
             <span
               className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${
                 isExpense
-                  ? "bg-[#B5483A]/15 text-[#B5483A]"
-                  : "bg-[#6B7A4F]/15 text-[#55633D]"
+                  ? "bg-[#CC4038]/15 text-[#CC4038]"
+                  : "bg-[#5B7186]/15 text-[#3B5578]"
               }`}
             >
               {isExpense ? "−" : "+"} {egp(entry.amountEgp)}
             </span>
-            <span className="text-sm font-medium text-[#38492E]">
+            <span className="text-sm font-medium text-[#0E2A47]">
               {labelCategory(entry.category)}
             </span>
-            <span className="text-xs text-[#5E6B4F]">
+            <span className="text-xs text-[#5B7186]">
               {entry.date} · {labelMethod(entry.method)}
             </span>
           </div>
           {entry.note && (
-            <p className="mt-0.5 truncate text-sm text-[#5E6B4F]">{entry.note}</p>
+            <p className="mt-0.5 truncate text-sm text-[#5B7186]">{entry.note}</p>
           )}
         </div>
         <div className="flex shrink-0 gap-2">
@@ -514,7 +514,7 @@ function EntryRow({
           </button>
         </div>
       </div>
-      {error && <p className="mt-2 text-sm text-[#B5483A]">{error}</p>}
+      {error && <p className="mt-2 text-sm text-[#CC4038]">{error}</p>}
     </article>
   );
 }
@@ -615,16 +615,16 @@ export default function FinanceSection({
   return (
     <section>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-serif text-2xl text-[#38492E]">Finance</h2>
+        <h2 className="font-serif text-2xl text-[#0E2A47]">Finance</h2>
         <div className="flex flex-wrap items-center gap-2">
-          <label className="text-xs font-medium uppercase tracking-[0.08em] text-[#5E6B4F]">
+          <label className="text-xs font-medium uppercase tracking-[0.08em] text-[#5B7186]">
             Month
           </label>
           <input
             type="month"
             value={month}
             onChange={(e) => setMonth(e.target.value || currentCairoMonth())}
-            className="rounded-xl border border-[#38492E]/15 bg-white px-3 py-1.5 text-sm text-[#38492E] outline-none focus:border-[#357F75]"
+            className="rounded-xl border border-[#0E2A47]/15 bg-white px-3 py-1.5 text-sm text-[#0E2A47] outline-none focus:border-[#1668C7]"
           />
         </div>
       </div>
@@ -633,7 +633,7 @@ export default function FinanceSection({
         <div className="mb-4 space-y-4">
           <SummaryCards pnl={pnl} />
           {pnl.failures.length > 0 && (
-            <div className="rounded-xl border border-[#E5DCCB] bg-[#EFE7D6] px-4 py-2 text-sm text-[#5E6B4F]">
+            <div className="rounded-xl border border-[#D8E4F2] bg-[#E4EEFA] px-4 py-2 text-sm text-[#5B7186]">
               Heads up: couldn&apos;t load {pnl.failures.join(", ")} — some numbers may be incomplete.
             </div>
           )}
@@ -664,7 +664,7 @@ export default function FinanceSection({
       )}
 
       {error && (
-        <div className="mb-4 rounded-2xl border border-[#B5483A]/30 bg-[#FBF4E6] px-6 py-4 text-sm text-[#B5483A]">
+        <div className="mb-4 rounded-2xl border border-[#CC4038]/30 bg-[#F4F8FD] px-6 py-4 text-sm text-[#CC4038]">
           {error}
         </div>
       )}
@@ -691,9 +691,9 @@ export default function FinanceSection({
         )}
 
         {loading ? (
-          <p className="text-sm text-[#5E6B4F]">Loading…</p>
+          <p className="text-sm text-[#5B7186]">Loading…</p>
         ) : pnl && pnl.entries.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-[#38492E]/15 bg-[#FBF4E6]/60 px-6 py-8 text-center text-sm text-[#5E6B4F]">
+          <div className="rounded-2xl border border-dashed border-[#0E2A47]/15 bg-[#F4F8FD]/60 px-6 py-8 text-center text-sm text-[#5B7186]">
             No manual entries this month. Shop order income is counted
             automatically in the summary above.
           </div>
