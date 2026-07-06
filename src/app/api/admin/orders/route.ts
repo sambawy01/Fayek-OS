@@ -11,6 +11,7 @@ import {
 import { saveOrder, type StoredOrder, type StoredOrderItem } from "@/lib/orders";
 import { getCompany } from "@/lib/companies";
 import { createReceivable } from "@/lib/receivables";
+import { checkReorder } from "@/lib/production";
 
 export const runtime = "nodejs";
 
@@ -232,6 +233,8 @@ export async function POST(request: NextRequest) {
   // persist the order. Both mirror the website order flow.
   try {
     await decrementQuantities(toDecrement);
+    // Stock dropped — auto-raise factory production orders for anything now low.
+    await checkReorder(toDecrement.map((i) => i.slug));
   } catch (error) {
     console.error(`[admin/orders] Stock decrement failed (${orderNumber}):`, error);
     return NextResponse.json(

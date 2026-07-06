@@ -43,6 +43,8 @@ import QuotationsSection from "./quotations-section";
 import ProspectingSection from "./prospecting-section";
 import OpenPOsSection from "./open-pos-section";
 import { listLeads, countLeadsByStatus, type Lead } from "@/lib/leads";
+import { listProductionOrders, type ProductionOrder } from "@/lib/production";
+import ProductionSection from "./production-section";
 import UsersSection, { type AdminUser } from "./users-section";
 
 export const dynamic = "force-dynamic";
@@ -268,6 +270,31 @@ export default async function AdminPage() {
         ),
       });
     }
+  }
+
+  // --- Production (reorder automation + factory production orders) -------------
+  if (can(role, "production.view")) {
+    let prodOrders: ProductionOrder[] = [];
+    let prodProducts: { slug: string; name: string }[] = [];
+    try {
+      prodOrders = await listProductionOrders();
+      const catalog = await getCatalog();
+      prodProducts = catalog.filter((p) => p.active).map((p) => ({ slug: p.slug, name: p.en.name }));
+    } catch (e) {
+      console.error("production load:", e);
+    }
+    const pendingProd = prodOrders.filter((o) => o.status === "pending_approval").length;
+    tabs.push({
+      id: "production",
+      label: pendingProd > 0 ? `Production (${pendingProd})` : "Production",
+      node: (
+        <ProductionSection
+          initialOrders={prodOrders}
+          products={prodProducts}
+          canManage={can(role, "production.manage")}
+        />
+      ),
+    });
   }
 
   // --- Client Dispatch (POs Finance released for warehouse dispatch) ----------

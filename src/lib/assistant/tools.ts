@@ -7,6 +7,7 @@ import {
   decrementQuantities,
   type Product,
 } from "../catalog";
+import { checkReorder } from "../production";
 import {
   getOrder,
   listOrders,
@@ -1585,7 +1586,7 @@ async function execInStoreSale(args: Record<string, unknown>): Promise<string> {
     payment,
     statusHistory: [{ status: "delivered", at: createdAt }],
   };
-  if (decrement) await decrementQuantities([decrement]);
+  if (decrement) { await decrementQuantities([decrement]); await checkReorder([decrement.slug]); }
   await saveOrder(record);
   return `Recorded in-store sale ${orderNumber}: ${qty}× ${item.names.en} — ${lineEgp} EGP (${paymentLabel}). ${stockNote} Counted as revenue.`;
 }

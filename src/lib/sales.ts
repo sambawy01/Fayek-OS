@@ -1,6 +1,7 @@
 import { db } from "./db";
 import { decrementQuery } from "./catalog";
 import { createReceivable } from "./receivables";
+import { checkReorder } from "./production";
 import { dateOnly, isoString } from "./db-dates";
 
 export interface SalesLine {
@@ -268,6 +269,8 @@ export async function fulfilPurchaseOrder(id: number): Promise<PurchaseOrderDeta
     .map((l) => decrementQuery(l.slug, l.qty));
   queries.push(db()`UPDATE purchase_orders SET fulfilled = TRUE, status = ${nextStatus}, updated_at = now() WHERE id = ${id}`);
   await db().transaction(queries);
+  // Stock dropped — auto-raise factory production orders for anything now low.
+  await checkReorder(po.lines.map((l) => l.slug));
   return getPurchaseOrder(id);
 }
 

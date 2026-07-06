@@ -40,6 +40,9 @@ export const PERMISSIONS = {
   "catalog.editPrice": ["owner", "admin"], // financial value — NOT inventory
   "catalog.editStock": ["owner", "admin", "inventory"],
   "catalog.receiveBatch": ["owner", "admin", "inventory"],
+  // Factory production orders (reorder automation + manual)
+  "production.view": ["owner", "admin", "factory", "inventory"], // see the queue
+  "production.manage": ["owner", "admin"], // create + approve/reject
   // Factory batches / receiving
   "batches.view": ["owner", "admin", "inventory", "factory"],
   "batches.create": ["owner", "admin", "factory"], // declare a factory dispatch
