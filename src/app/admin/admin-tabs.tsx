@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 
 /**
  * Two-level tab nav for /admin. The server passes a flat list of already-rendered
@@ -69,7 +69,23 @@ function splitBadge(label: string): { text: string; badge: number } {
 }
 
 export default function AdminTabs({ tabs }: { tabs: AdminTab[] }) {
-  const [active, setActive] = useState<string>(tabs[0]?.id ?? "");
+  const [active, setActiveState] = useState<string>(tabs[0]?.id ?? "");
+
+  // Restore the open tab from the URL hash after a full page reload. (Starts on
+  // the first tab to match the server render, then syncs to the hash on mount —
+  // avoids a hydration mismatch.)
+  useEffect(() => {
+    const fromHash = decodeURIComponent(window.location.hash.slice(1));
+    if (fromHash && tabs.some((t) => t.id === fromHash)) setActiveState(fromHash);
+  }, [tabs]);
+
+  // Selecting a tab records it in the URL (replaceState = no new history entry),
+  // so a reload lands on the same tab instead of jumping to the first one.
+  const setActive = (id: string) => {
+    setActiveState(id);
+    try { window.history.replaceState(null, "", `#${encodeURIComponent(id)}`); } catch { /* ignore */ }
+  };
+
   const activeGroup = groupOf(active);
 
   const groupTabs = (gid: string) => tabs.filter((t) => groupOf(t.id) === gid);
