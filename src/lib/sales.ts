@@ -44,10 +44,17 @@ export interface PurchaseOrder {
   /** Name of the Finance user who released the goods (for the release form). */
   releasedByName: string | null;
   receivableId: number | null;
+  /** When the invoice was marked sent to the client (post-invoice lifecycle). */
+  invoiceSentAt: string | null;
   createdAt: string;
 }
 export interface PurchaseOrderDetail extends PurchaseOrder {
   lines: SalesLine[];
+  /** Payment progress on the linked receivable (drives the "payment received" gate). */
+  receivablePaidEgp: number;
+  receivableStatus: string | null;
+  /** Overall due date from the linked receivable. */
+  dueDate: string | null;
 }
 
 const lineTotal = (lines: SalesLine[]) =>
@@ -163,7 +170,23 @@ export async function getPurchaseOrder(id: number): Promise<PurchaseOrderDetail 
   `) as Record<string, unknown>[];
   if (!rows[0]) return null;
   const lines = (await db()`SELECT * FROM purchase_order_lines WHERE po_id = ${id} ORDER BY id`) as Record<string, unknown>[];
-  return { ...toPO(rows[0]), lines: lines.map(toLine) };
+  const base = toPO(rows[0]);
+
+  // Pull payment progress + due date from the linked receivable (gates release).
+  let receivablePaidEgp = 0, receivableStatus: string | null = null, dueDate: string | null = null;
+  if (base.receivableId) {
+    const rr = (await db()`
+      SELECT r.status, r.due_date,
+             COALESCE((SELECT SUM(amount_egp) FROM receivable_payments WHERE receivable_id = r.id), 0)::int AS paid
+      FROM receivables r WHERE r.id = ${base.receivableId}
+    `) as { status: string; due_date: string | null; paid: number }[];
+    if (rr[0]) {
+      receivablePaidEgp = Number(rr[0].paid);
+      receivableStatus = rr[0].status;
+      dueDate = rr[0].due_date ? String(rr[0].due_date) : null;
+    }
+  }
+  return { ...base, lines: lines.map(toLine), receivablePaidEgp, receivableStatus, dueDate };
 }
 
 function toPO(r: Record<string, unknown>): PurchaseOrder {
@@ -176,8 +199,18 @@ function toPO(r: Record<string, unknown>): PurchaseOrder {
     dispatchReleaseNote: r.dispatch_release_note ? String(r.dispatch_release_note) : "",
     releasedByName: r.released_by_name ? String(r.released_by_name) : null,
     receivableId: r.receivable_id === null ? null : Number(r.receivable_id),
+    invoiceSentAt: r.invoice_sent_at ? isoString(r.invoice_sent_at) : null,
     createdAt: isoString(r.created_at),
   };
+}
+
+/** Mark an invoiced PO's invoice as sent to the client. */
+export async function markInvoiceSent(id: number): Promise<PurchaseOrderDetail | null> {
+  await db()`
+    UPDATE purchase_orders SET invoice_sent_at = now(), updated_at = now()
+    WHERE id = ${id} AND receivable_id IS NOT NULL
+  `;
+  return getPurchaseOrder(id);
 }
 
 export type ReleaseResult =

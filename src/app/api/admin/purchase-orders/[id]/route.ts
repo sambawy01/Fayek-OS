@@ -6,6 +6,7 @@ import {
   fulfilPurchaseOrder,
   invoicePurchaseOrder,
   releaseToWarehouse,
+  markInvoiceSent,
 } from "@/lib/sales";
 
 export const runtime = "nodejs";
@@ -59,16 +60,25 @@ export async function POST(
     return NextResponse.json({ error: "Only Owner/Admin can process purchase orders." }, { status: 403 });
   }
 
+  // "mark-sent" = Finance marks the invoice as sent to the client.
+  if (body.action === "mark-sent") {
+    const po = await markInvoiceSent(id);
+    if (!po) return NextResponse.json({ error: "Invoice this PO before marking it sent." }, { status: 409 });
+    return NextResponse.json({ purchaseOrder: po });
+  }
+
   // "release" = Finance issues the Product Release Form → warehouse queue.
-  // Requires a proof of payment, UNLESS Owner/Admin waives it for a trusted key
-  // account (waive=true + an authorization note explaining the exception).
+  // Requires the customer's payment to have been RECEIVED (recorded, with proof,
+  // on the receivable), UNLESS Owner/Admin waives it for a trusted key account
+  // (waive=true + an authorization note explaining the exception).
   if (body.action === "release" || body.action === "request-dispatch") {
     const note = typeof body.note === "string" ? body.note.trim() : "";
-    const proofUrl = typeof body.proofUrl === "string" ? body.proofUrl.trim() : "";
     const waive = body.waive === true;
-    if (!waive && !proofUrl) {
+    const current = await getPurchaseOrder(id);
+    if (!current) return NextResponse.json({ error: "Not found." }, { status: 404 });
+    if (!waive && !(current.receivablePaidEgp > 0)) {
       return NextResponse.json(
-        { error: "Attach a proof of payment to release — or mark it a trusted-account exception." },
+        { error: "Record the customer's payment (with proof) before releasing — or mark it a trusted-account exception." },
         { status: 400 }
       );
     }
@@ -78,7 +88,7 @@ export async function POST(
         { status: 400 }
       );
     }
-    const r = await releaseToWarehouse(id, note, session.uid, proofUrl);
+    const r = await releaseToWarehouse(id, note, session.uid);
     if (!r.ok) {
       const msg =
         r.reason === "not_found" ? "Not found." :
