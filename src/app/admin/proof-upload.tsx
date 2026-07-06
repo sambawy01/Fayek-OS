@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { upload } from "@vercel/blob/client";
 
 const EXT: Record<string, string> = {
   "image/jpeg": "jpg",
@@ -75,15 +74,22 @@ export function ProofField({
     try {
       // Compress large images client-side; PDFs pass through unchanged.
       const { blob, type, ext } = await maybeCompress(file);
-      if (blob.size > 8 * 1024 * 1024) {
-        return onError("Proof is too large (over 8 MB after compression). Please use a smaller file or a PDF.");
+      if (blob.size > 4 * 1024 * 1024) {
+        return onError(
+          type === "application/pdf"
+            ? "PDF proof is too large (max 4 MB). Please compress it or upload an image."
+            : "Proof is still too large after compression. Please use a smaller image."
+        );
       }
-      const uploaded = await upload(`proofs/${safeName(file.name)}.${ext}`, blob, {
-        access: "public",
-        contentType: type,
-        handleUploadUrl: "/api/admin/payment-proof",
-      });
-      onUploaded(uploaded.url);
+      const data = new FormData();
+      data.append("file", new File([blob], `${safeName(file.name)}.${ext}`, { type }));
+      const res = await fetch("/api/admin/payment-proof", { method: "POST", body: data });
+      if (!res.ok) {
+        const d = (await res.json().catch(() => ({}))) as { error?: string };
+        return onError(d.error ?? "Upload failed.");
+      }
+      const { url } = (await res.json()) as { url: string };
+      onUploaded(url);
     } catch {
       onError("Upload failed — please try again.");
     } finally {

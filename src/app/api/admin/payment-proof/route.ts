@@ -1,56 +1,73 @@
 import { NextResponse } from "next/server";
-import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
+import { put } from "@vercel/blob";
 import { requireCapability } from "@/lib/auth/session-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const ALLOWED = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
-const MAX_BYTES = 8 * 1024 * 1024;
+const ALLOWED: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "application/pdf": "pdf",
+};
+// Kept under Vercel's ~4.5 MB serverless request-body limit; the client
+// compresses images below this before upload.
+const MAX_BYTES = 4 * 1024 * 1024;
+
+function safeName(name: string): string {
+  return (name || "proof").replace(/\.[^.]+$/, "").replace(/[^a-zA-Z0-9_-]+/g, "-").slice(0, 40) || "proof";
+}
 
 /**
- * POST /api/admin/payment-proof — issues a short-lived client token so the
- * browser uploads the proof (bank-transfer receipt or cheque, image or PDF)
- * DIRECTLY to Blob under `proofs/`. This bypasses the ~4.5 MB serverless
- * request-body limit that a multipart upload through this route hit — full-page
- * screenshots routinely exceed it, which silently failed the upload. The file
- * bytes never pass through this function; only the token handshake does.
- *
- * Finance-scoped (owner/admin).
+ * POST /api/admin/payment-proof — upload a proof of payment (bank-transfer
+ * receipt or cheque, image or PDF) to the PRIVATE Blob store under `proofs/`.
+ * Returns { url } pointing at the auth-gated proxy (the store is private-only,
+ * so public URLs aren't possible — same pattern as product photos). Finance-
+ * scoped (owner/admin). Images are compressed client-side first, so the
+ * multipart body stays well under the serverless request-body limit.
  */
 export async function POST(request: Request) {
   const guard = await requireCapability("finance.view");
   if ("error" in guard) return guard.error;
 
-  const token = process.env.MEDIA_READ_WRITE_TOKEN || process.env.BLOB_READ_WRITE_TOKEN;
+  // Use the default store token — the media-file proxy reads private blobs with
+  // this same token, so uploading here guarantees the proof is readable back.
+  const token = process.env.BLOB_READ_WRITE_TOKEN;
   if (!token) {
     return NextResponse.json({ error: "Uploads are not configured (no Blob token)." }, { status: 503 });
   }
 
-  let body: HandleUploadBody;
+  let form: FormData;
   try {
-    body = (await request.json()) as HandleUploadBody;
+    form = await request.formData();
   } catch {
-    return NextResponse.json({ error: "Invalid request." }, { status: 400 });
+    return NextResponse.json({ error: "Expected a multipart form with a `file` field." }, { status: 400 });
+  }
+  const file = form.get("file");
+  if (!(file instanceof File)) {
+    return NextResponse.json({ error: "Missing `file`." }, { status: 400 });
+  }
+  const ext = ALLOWED[file.type];
+  if (!ext) {
+    return NextResponse.json({ error: "Proof must be a JPEG, PNG, WebP or PDF." }, { status: 400 });
+  }
+  if (file.size === 0 || file.size > MAX_BYTES) {
+    return NextResponse.json({ error: "File must be between 1 byte and 4 MB (compress large PDFs)." }, { status: 400 });
   }
 
   try {
-    const json = await handleUpload({
-      body,
-      request,
+    const blob = await put(`proofs/${safeName(file.name)}-${file.size}.${ext}`, file, {
+      access: "private", // store is private-only; served via the media-file proxy
+      contentType: file.type,
+      addRandomSuffix: true,
       token,
-      onBeforeGenerateToken: async () => ({
-        allowedContentTypes: ALLOWED,
-        maximumSizeInBytes: MAX_BYTES,
-        addRandomSuffix: true,
-      }),
-      // The client receives the blob URL directly from upload(); this webhook is
-      // best-effort (and isn't reachable on localhost), so we no-op.
-      onUploadCompleted: async () => {},
     });
-    return NextResponse.json(json);
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : "Upload failed.";
-    return NextResponse.json({ error: msg }, { status: 400 });
+    // Auth-gated proxy URL (works with the session cookie); the store has no
+    // public URLs. Reuses the existing private-blob streamer.
+    const url = `/api/admin/media/file?p=${encodeURIComponent(blob.pathname)}`;
+    return NextResponse.json({ url, pathname: blob.pathname }, { status: 201 });
+  } catch {
+    return NextResponse.json({ error: "Upload failed. Please try again." }, { status: 502 });
   }
 }
