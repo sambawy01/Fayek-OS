@@ -44,6 +44,7 @@ import ProspectingSection from "./prospecting-section";
 import OpenPOsSection from "./open-pos-section";
 import { listLeads, countLeadsByStatus, type Lead } from "@/lib/leads";
 import { listProductionOrders, type ProductionOrder } from "@/lib/production";
+import { availability } from "@/lib/reservations";
 import ProductionSection from "./production-section";
 import UsersSection, { type AdminUser } from "./users-section";
 
@@ -83,9 +84,14 @@ export default async function AdminPage() {
   // --- Products Inventory ------------------------------------------------------
   if (TAB_ACCESS.inventory.includes(role)) {
     let products: Product[] = [];
+    let reservedBySlug: Record<string, number> = {};
     let err: string | null = null;
     try {
       products = await getCatalog();
+      const avail = await availability(products.map((p) => p.slug));
+      reservedBySlug = Object.fromEntries(
+        [...avail.values()].filter((a) => a.reserved > 0).map((a) => [a.slug, a.reserved])
+      );
     } catch (e) {
       console.error("catalog load:", e);
       err = LOAD_ERR("the product catalog");
@@ -100,6 +106,7 @@ export default async function AdminPage() {
           loadError={err}
           canManage={can(role, "catalog.editPrice")}
           canEditStock={can(role, "catalog.editStock")}
+          reservedBySlug={reservedBySlug}
         />
       ),
     });

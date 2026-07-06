@@ -461,6 +461,7 @@ function ProductRow({
   adminKey,
   canManage,
   canEditStock,
+  reserved,
   onUpdated,
   onDeleted,
   onEdit,
@@ -469,6 +470,7 @@ function ProductRow({
   adminKey: string;
   canManage: boolean;
   canEditStock: boolean;
+  reserved: number;
   onUpdated: (p: Product) => void;
   onDeleted: (slug: string) => void;
   onEdit: () => void;
@@ -574,6 +576,11 @@ function ProductRow({
                 {product.quantity === null ? "not tracked" : product.quantity}
               </span>
             )}
+            {product.quantity !== null && reserved > 0 && (
+              <span className="text-xs text-[#8A5A12]">
+                reserved {reserved} · available {Math.max(0, product.quantity - reserved)}
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -616,6 +623,7 @@ export default function ProductsSection({
   loadError,
   canManage = true,
   canEditStock = true,
+  reservedBySlug = {},
 }: {
   initialProducts: Product[];
   adminKey: string;
@@ -624,6 +632,8 @@ export default function ProductsSection({
   canManage?: boolean;
   /** Owner/Admin/Inventory: adjust stock quantities. */
   canEditStock?: boolean;
+  /** Active reservations per slug (available = on-hand − reserved). */
+  reservedBySlug?: Record<string, number>;
 }) {
   const [products, setProducts] = useState<Product[]>(initialProducts);
   // Reflect server auto-refreshes (own actions, cron, other users) into the list.
@@ -760,6 +770,7 @@ export default function ProductsSection({
                 adminKey={adminKey}
                 canManage={canManage}
                 canEditStock={canEditStock}
+                reserved={reservedBySlug[product.slug] ?? 0}
                 onUpdated={handleUpdated}
                 onDeleted={handleDeleted}
                 onEdit={() => {

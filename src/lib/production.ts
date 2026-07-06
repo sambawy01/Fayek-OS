@@ -105,6 +105,35 @@ export async function setProductionStatus(
 }
 
 /**
+ * Ensure the single open production order for a product covers `addQty` more
+ * units: bumps the existing open order's qty, or creates a new pending one.
+ * Used for invoice shortfalls (aggregates demand instead of spamming orders).
+ * Best-effort — never throws.
+ */
+export async function raiseProduction(
+  slug: string, name: string, addQty: number, reason: ProductionReason = "invoice_shortfall"
+): Promise<void> {
+  const add = Math.round(addQty);
+  if (add <= 0) return;
+  try {
+    const upd = (await db()`
+      UPDATE production_orders SET qty = qty + ${add}, updated_at = now()
+      WHERE slug = ${slug} AND status IN ('pending_approval', 'approved', 'in_production')
+      RETURNING id
+    `) as { id: number }[];
+    if (upd.length === 0) {
+      await db()`
+        INSERT INTO production_orders (slug, name, qty, reason, note)
+        VALUES (${slug}, ${name}, ${add}, ${reason}, ${"Auto: invoice shortfall"})
+        ON CONFLICT DO NOTHING
+      `;
+    }
+  } catch {
+    /* best-effort */
+  }
+}
+
+/**
  * Auto-reorder: for each slug whose TRACKED stock has fallen to/below its
  * reorder point, create a pending-approval production order (reason auto_reorder,
  * qty = reorder_qty). No-ops for untracked stock or when an open order already

@@ -2,6 +2,7 @@ import { db } from "./db";
 import { decrementQuery } from "./catalog";
 import { createReceivable } from "./receivables";
 import { checkReorder } from "./production";
+import { reserveForPO, releaseReservationsForPO } from "./reservations";
 import { dateOnly, isoString } from "./db-dates";
 
 export interface SalesLine {
@@ -269,6 +270,8 @@ export async function fulfilPurchaseOrder(id: number): Promise<PurchaseOrderDeta
     .map((l) => decrementQuery(l.slug, l.qty));
   queries.push(db()`UPDATE purchase_orders SET fulfilled = TRUE, status = ${nextStatus}, updated_at = now() WHERE id = ${id}`);
   await db().transaction(queries);
+  // Stock physically deducted — release this PO's reservations (now realized).
+  await releaseReservationsForPO(id);
   // Stock dropped — auto-raise factory production orders for anything now low.
   await checkReorder(po.lines.map((l) => l.slug));
   return getPurchaseOrder(id);
@@ -302,6 +305,10 @@ export async function invoicePurchaseOrder(
   );
   const nextStatus: POStatus = po.fulfilled ? "closed" : "invoiced";
   await db()`UPDATE purchase_orders SET receivable_id = ${rec.id}, status = ${nextStatus}, updated_at = now() WHERE id = ${id}`;
+  // Reserve available stock for this order; the shortfall raises production.
+  if (!po.fulfilled) {
+    await reserveForPO(id, po.lines.map((l) => ({ slug: l.slug, name: l.name, qty: l.qty })));
+  }
   return getPurchaseOrder(id);
 }
 
