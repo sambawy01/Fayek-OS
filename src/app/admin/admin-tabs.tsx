@@ -22,7 +22,7 @@ const GROUP_OF: Record<string, string> = {
   prospecting: "sales",
   customers: "sales",
   inventory: "inventory",
-  dispatch: "inventory",
+  dispatch: "factory",
   receiving: "inventory",
   clientDispatch: "inventory",
   finance: "finance",
@@ -34,6 +34,7 @@ const groupOf = (id: string) => GROUP_OF[id] ?? "admin";
 const GROUPS: { id: string; label: string }[] = [
   { id: "sales", label: "Sales" },
   { id: "inventory", label: "Inventory" },
+  { id: "factory", label: "Factory" },
   { id: "finance", label: "Finance" },
   { id: "admin", label: "Owner / Admin" },
 ];
