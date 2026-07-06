@@ -42,15 +42,20 @@ function countdown(deadlineIso: string | null): { text: string; cls: string } | 
 }
 
 export default function ProductionSection({
-  initialOrders, products, canManage,
+  initialOrders, products, canManage, mode = "manage",
 }: {
   initialOrders: ProductionOrder[];
   products: { slug: string; name: string }[];
   canManage: boolean;
+  /** "manage" = Owner/Admin authoring + approval; "queue" = factory queue only. */
+  mode?: "manage" | "queue";
 }) {
+  // Authoring & approval live ONLY in manage mode (Owner/Admin). The factory
+  // sees a queue: start production + dispatch, no create/approve.
+  const manage = mode === "manage" && canManage;
   const [orders, setOrders] = useState<ProductionOrder[]>(initialOrders);
   useEffect(() => { setOrders(initialOrders); }, [initialOrders]);
-  const [filter, setFilter] = useState<"open" | "pending_approval" | "done" | "all">("open");
+  const [filter, setFilter] = useState<"open" | "pending_approval" | "done" | "all">(mode === "queue" ? "open" : "pending_approval");
   const [slug, setSlug] = useState("");
   const [qty, setQty] = useState("");
   const [deadline, setDeadline] = useState("");
@@ -150,21 +155,22 @@ export default function ProductionSection({
     <section>
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <h2 className="font-serif text-2xl text-[#0E2A47]">Production</h2>
-        {canManage && (
+        {manage && (
           <button className={primaryBtn} disabled={aiBusy} onClick={() => void aiSuggest()}>
             {aiBusy ? "Analysing…" : "✨ AI suggest orders"}
           </button>
         )}
       </div>
       <p className="mb-3 text-sm text-[#5B7186]">
-        Factory production orders — auto-raised when stock hits an item&rsquo;s reorder point, or created manually.
-        {canManage ? " Approve to send to the factory queue." : " Approved orders are the factory queue."}
+        {mode === "queue"
+          ? "Approved production orders — the factory queue. Start production, then dispatch to the warehouse. Only Owner/Admin create and approve orders."
+          : "Create production orders (with AI suggestions) and approve auto-raised ones — Owner/Admin only. Approved orders go to the factory queue."}
       </p>
 
       {msg && <div className="mb-3 rounded-2xl border border-[#1668C7]/30 bg-[#F4F8FD] px-4 py-2 text-sm text-[#0E7490]">{msg}</div>}
       {error && <div className="mb-3 rounded-2xl border border-[#CC4038]/30 bg-[#F4F8FD] px-4 py-2 text-sm text-[#CC4038]">{error}</div>}
 
-      {canManage && suggestions && suggestions.length > 0 && (
+      {manage && suggestions && suggestions.length > 0 && (
         <div className="mb-4 rounded-2xl border border-[#1668C7]/25 bg-[#F4F8FD] px-3 py-3">
           <div className="mb-2 flex items-center justify-between">
             <p className="text-xs uppercase tracking-[0.06em] text-[#5B7186]">✨ AI-suggested production (from sales · inventory · cash)</p>
@@ -187,7 +193,7 @@ export default function ProductionSection({
         </div>
       )}
 
-      {canManage && (
+      {manage && (
         <div className="mb-4 rounded-2xl border border-[#0E2A47]/10 bg-[#F4F8FD] px-3 py-3">
           <p className="mb-2 text-xs uppercase tracking-[0.06em] text-[#5B7186]">Create a production order</p>
           <div className="flex flex-wrap items-center gap-2">
@@ -229,7 +235,7 @@ export default function ProductionSection({
               </div>
             </div>
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              {canManage && o.status === "pending_approval" && (
+              {manage && o.status === "pending_approval" && (
                 <>
                   <button className={primaryBtn} onClick={() => void act(o.id, "approve")}>Approve</button>
                   <button className={subtleBtn} onClick={() => void act(o.id, "reject")}>Reject</button>
@@ -245,7 +251,7 @@ export default function ProductionSection({
                   <button className={primaryBtn} onClick={() => void doDispatch(o)}>Dispatch to warehouse</button>
                 </>
               )}
-              {canManage && (o.status === "approved" || o.status === "in_production") && (
+              {manage && (o.status === "approved" || o.status === "in_production") && (
                 <button className={subtleBtn} onClick={() => void act(o.id, "cancel")}>Cancel</button>
               )}
             </div>

@@ -30,6 +30,7 @@ const GROUP_OF: Record<string, string> = {
   finance: "finance",
   reports: "admin",
   approvals: "admin",
+  productionOrders: "admin",
   users: "admin",
 };
 const groupOf = (id: string) => GROUP_OF[id] ?? "admin";
@@ -58,6 +59,7 @@ const ICONS: Record<string, ReactNode> = {
   prospecting: Icon("M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z|m21 21-4.3-4.3|M11 8v6|M8 11h6"),
   dispatch: Icon("M1 3h15v13H1z|M16 8h4l3 3v5h-7|M5.5 20a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm13 0a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z"),
   production: Icon("M2 20h20|M4 20V9l6 4V9l6 4V6l4 3v11|M8 20v-4|M14 20v-4"),
+  productionOrders: Icon("M2 20h20|M4 20V9l6 4V9l6 4V6l4 3v11|M8 20v-4|M14 20v-4"),
   factoryWarehouse: Icon("M3 21V8l9-5 9 5v13|M3 21h18|M9 21v-6h6v6|M7 11h.01|M12 11h.01|M17 11h.01"),
   clientDispatch: Icon("M1 3h15v13H1z|M16 8h4l3 3v5h-7|M5.5 20a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm13 0a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z"),
   receiving: Icon("M16 3h5v13H2V3h5|M2 8h19|M9 3v5m6-5v5|M8 16v3a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-3"),

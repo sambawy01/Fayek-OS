@@ -292,14 +292,32 @@ export default async function AdminPage() {
       console.error("production load:", e);
     }
     const pendingProd = prodOrders.filter((o) => o.status === "pending_approval").length;
+    // Owner/Admin: author production orders (with AI suggestions) + approve
+    // auto-raised ones. This management surface lives in the Owner/Admin group.
+    if (can(role, "production.manage")) {
+      tabs.push({
+        id: "productionOrders",
+        label: pendingProd > 0 ? `Production Orders (${pendingProd})` : "Production Orders",
+        node: (
+          <ProductionSection
+            initialOrders={prodOrders}
+            products={prodProducts}
+            canManage
+            mode="manage"
+          />
+        ),
+      });
+    }
+    // Factory queue: approved/in-production only — start + dispatch, no create/approve.
     tabs.push({
       id: "production",
-      label: pendingProd > 0 ? `Production (${pendingProd})` : "Production",
+      label: "Production",
       node: (
         <ProductionSection
           initialOrders={prodOrders}
           products={prodProducts}
-          canManage={can(role, "production.manage")}
+          canManage={false}
+          mode="queue"
         />
       ),
     });
