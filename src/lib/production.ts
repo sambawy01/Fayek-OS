@@ -156,6 +156,7 @@ export async function checkReorder(slugs: string[]): Promise<void> {
       SELECT slug, name_en, quantity, reorder_point, GREATEST(reorder_qty, 1) AS reorder_qty
       FROM products
       WHERE slug = ANY(${unique}::text[]) AND quantity IS NOT NULL AND quantity <= reorder_point
+        AND frequent_supply = FALSE
     `) as { slug: string; name_en: string; quantity: number; reorder_point: number; reorder_qty: number }[];
     for (const p of rows) {
       await createProductionOrder(
