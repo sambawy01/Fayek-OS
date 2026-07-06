@@ -14,6 +14,42 @@ function safeName(name: string): string {
   return (name || "proof").replace(/\.[^.]+$/, "").replace(/[^a-zA-Z0-9_-]+/g, "-").slice(0, 40) || "proof";
 }
 
+const MAX_DIM = 2000;         // downscale so the longest edge is <= this
+const COMPRESS_OVER = 1_000_000; // only bother compressing images above ~1 MB
+
+function encode(canvas: HTMLCanvasElement, type: string, quality: number): Promise<Blob | null> {
+  return new Promise((resolve) => canvas.toBlob((b) => resolve(b), type, quality));
+}
+
+/**
+ * Shrink large images (downscale to MAX_DIM, re-encode as WebP/JPEG ~0.82) so a
+ * multi-MB screenshot uploads as a few hundred KB. Returns the original file for
+ * PDFs, small images, or if compression can't beat the original.
+ */
+async function maybeCompress(file: File): Promise<{ blob: Blob; type: string; ext: string }> {
+  const orig = { blob: file, type: file.type, ext: EXT[file.type] };
+  if (!/^image\/(jpeg|png|webp)$/.test(file.type) || file.size <= COMPRESS_OVER) return orig;
+  try {
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, MAX_DIM / Math.max(bitmap.width, bitmap.height));
+    const w = Math.max(1, Math.round(bitmap.width * scale));
+    const h = Math.max(1, Math.round(bitmap.height * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = w; canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return orig;
+    ctx.drawImage(bitmap, 0, 0, w, h);
+    bitmap.close?.();
+    let out = await encode(canvas, "image/webp", 0.82);
+    let type = "image/webp", ext = "webp";
+    if (!out) { out = await encode(canvas, "image/jpeg", 0.82); type = "image/jpeg"; ext = "jpg"; }
+    if (!out || out.size >= file.size) return orig;
+    return { blob: out, type, ext };
+  } catch {
+    return orig;
+  }
+}
+
 /**
  * Bank-transfer / cheque proof upload (image or PDF). Uploads the file DIRECTLY
  * from the browser to Vercel Blob (via a token minted by /api/admin/payment-proof)
@@ -34,17 +70,20 @@ export function ProofField({
   const setBusy = (b: boolean) => { setUploading(b); onUploadingChange?.(b); };
 
   async function handle(file: File) {
-    const ext = EXT[file.type];
-    if (!ext) return onError("Proof must be a JPEG, PNG, WebP or PDF.");
-    if (file.size > 8 * 1024 * 1024) return onError("Proof must be at most 8 MB.");
+    if (!EXT[file.type]) return onError("Proof must be a JPEG, PNG, WebP or PDF.");
     setBusy(true);
     try {
-      const blob = await upload(`proofs/${safeName(file.name)}.${ext}`, file, {
+      // Compress large images client-side; PDFs pass through unchanged.
+      const { blob, type, ext } = await maybeCompress(file);
+      if (blob.size > 8 * 1024 * 1024) {
+        return onError("Proof is too large (over 8 MB after compression). Please use a smaller file or a PDF.");
+      }
+      const uploaded = await upload(`proofs/${safeName(file.name)}.${ext}`, blob, {
         access: "public",
-        contentType: file.type,
+        contentType: type,
         handleUploadUrl: "/api/admin/payment-proof",
       });
-      onUploaded(blob.url);
+      onUploaded(uploaded.url);
     } catch {
       onError("Upload failed — please try again.");
     } finally {
