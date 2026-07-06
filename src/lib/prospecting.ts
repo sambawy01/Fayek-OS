@@ -13,7 +13,7 @@ import {
   webSearch, webExtract, isCompanySite, hostOf, scrapeContacts, webSearchConfigured,
 } from "./websearch";
 import { brandedOutreachHtml } from "./outreach-email";
-import { createLead, knownDomains, type Lead } from "./leads";
+import { createLead, knownDomains, type Lead, type LeadStatus } from "./leads";
 
 const SECTORS: { name: string; query: string }[] = [
   { name: "Pharmaceutical manufacturing", query: "pharmaceutical manufacturer factory Egypt" },
@@ -56,21 +56,34 @@ function fallbackBody(company: string, sector: string): string {
   );
 }
 
+export interface DiscoverOptions {
+  dayIndex?: number;
+  /** Where new leads land: "pending" surfaces immediately, "reserve" caches them. */
+  status?: LeadStatus;
+  /** Search results fetched per sector. Bulk stockpile runs pass a wider net. */
+  perSector?: number;
+}
+
 export async function discoverAndDraftLeads(
   count = 4,
   createdBy: number | null,
-  dayIndex?: number
+  opts: DiscoverOptions = {}
 ): Promise<ProspectingResult> {
   if (!webSearchConfigured()) {
     return { created: [], scanned: 0, skipped: 0, webSearchConfigured: false, reason: "TAVILY_API_KEY not set" };
   }
 
+  const status: LeadStatus = opts.status ?? "pending";
+  // Enough candidates per sector to cover the target after de-dup/filtering.
+  const perSector =
+    opts.perSector ?? Math.min(20, Math.max(8, Math.ceil((count * 2) / SECTORS.length) + 6));
+
   const seen = await knownDomains();
   const products = await getCatalog();
   const catalog = catalogSummaryForAI(products);
 
-  // Rotate sectors so successive days cover different industries.
-  const offset = (dayIndex ?? Math.floor(Date.now() / 86_400_000)) % SECTORS.length;
+  // Rotate sectors so successive runs cover different industries.
+  const offset = (opts.dayIndex ?? Math.floor(Date.now() / 86_400_000)) % SECTORS.length;
   const ordered = [...SECTORS.slice(offset), ...SECTORS.slice(0, offset)];
 
   const created: Lead[] = [];
@@ -78,7 +91,7 @@ export async function discoverAndDraftLeads(
 
   for (const sector of ordered) {
     if (created.length >= count) break;
-    const hits = await webSearch(sector.query, { maxResults: 8 });
+    const hits = await webSearch(sector.query, { maxResults: perSector });
     for (const hit of hits) {
       if (created.length >= count) break;
       if (!isCompanySite(hit.url)) { skipped++; continue; }
@@ -121,6 +134,7 @@ export async function discoverAndDraftLeads(
             draftHtml: html,
             source: "auto",
             domain,
+            status,
           },
           createdBy
         );

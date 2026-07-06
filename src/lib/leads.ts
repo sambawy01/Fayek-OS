@@ -1,7 +1,7 @@
 import { db } from "./db";
 import { isoString } from "./db-dates";
 
-export type LeadStatus = "pending" | "approved" | "rejected" | "sent";
+export type LeadStatus = "reserve" | "pending" | "approved" | "rejected" | "sent";
 
 export interface Lead {
   id: number;
@@ -56,6 +56,8 @@ export interface NewLead {
   draftHtml: string;
   source?: string;
   domain?: string;
+  /** Where the lead lands. Bulk stockpile runs pass "reserve"; default "pending". */
+  status?: LeadStatus;
 }
 
 /** Insert a lead. De-dupes on domain (unique index) → returns null on conflict. */
@@ -63,13 +65,13 @@ export async function createLead(input: NewLead, createdBy: number | null): Prom
   const rows = (await db()`
     INSERT INTO leads (
       company_name, website, sector, location, contact_name, contact_email, contact_phone,
-      rationale, relevant_products, draft_subject, draft_body, draft_html, source, domain, created_by
+      rationale, relevant_products, draft_subject, draft_body, draft_html, status, source, domain, created_by
     ) VALUES (
       ${input.companyName}, ${input.website ?? ""}, ${input.sector ?? ""}, ${input.location ?? ""},
       ${input.contactName ?? ""}, ${input.contactEmail ?? ""}, ${input.contactPhone ?? ""},
       ${input.rationale ?? ""}, ${(input.relevantProducts ?? []).join("\n")},
       ${input.draftSubject}, ${input.draftBody}, ${input.draftHtml},
-      ${input.source ?? "auto"}, ${input.domain ?? ""}, ${createdBy}
+      ${input.status ?? "pending"}, ${input.source ?? "auto"}, ${input.domain ?? ""}, ${createdBy}
     )
     ON CONFLICT DO NOTHING
     RETURNING *
@@ -77,11 +79,46 @@ export async function createLead(input: NewLead, createdBy: number | null): Prom
   return rows[0] ? toLead(rows[0]) : null;
 }
 
+/**
+ * Leads for the Prospecting tab. With no `status`, the cached `reserve` pool is
+ * hidden — those are surfaced only after the daily drip promotes them to pending.
+ */
 export async function listLeads(status?: LeadStatus): Promise<Lead[]> {
   const rows = status
     ? ((await db()`SELECT * FROM leads WHERE status = ${status} ORDER BY created_at DESC LIMIT 200`) as LeadRow[])
-    : ((await db()`SELECT * FROM leads ORDER BY created_at DESC LIMIT 200`) as LeadRow[]);
+    : ((await db()`SELECT * FROM leads WHERE status <> 'reserve' ORDER BY created_at DESC LIMIT 200`) as LeadRow[]);
   return rows.map(toLead);
+}
+
+/** Size of the cached reserve pool (or any status). */
+export async function countLeadsByStatus(status: LeadStatus): Promise<number> {
+  const rows = (await db()`SELECT COUNT(*)::int AS n FROM leads WHERE status = ${status}`) as { n: number }[];
+  return rows[0]?.n ?? 0;
+}
+
+/**
+ * Promote up to `n` oldest reserve leads into the pending approval queue (FIFO),
+ * stamping `released_at`. Returns the leads that were released.
+ */
+export async function releaseReserved(n: number): Promise<Lead[]> {
+  if (n <= 0) return [];
+  const rows = (await db()`
+    UPDATE leads SET status = 'pending', released_at = now(), updated_at = now()
+    WHERE id IN (
+      SELECT id FROM leads WHERE status = 'reserve'
+      ORDER BY created_at ASC LIMIT ${n}
+    )
+    RETURNING *
+  `) as LeadRow[];
+  return rows.map(toLead);
+}
+
+/** How many leads were dripped into the pending queue since `sinceIso`. */
+export async function countReleasedSince(sinceIso: string): Promise<number> {
+  const rows = (await db()`
+    SELECT COUNT(*)::int AS n FROM leads WHERE released_at >= ${sinceIso}
+  `) as { n: number }[];
+  return rows[0]?.n ?? 0;
 }
 
 export async function getLead(id: number): Promise<Lead | null> {

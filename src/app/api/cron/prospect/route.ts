@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { cronAuthError, isForced } from "@/lib/reports/shared";
 import { discoverAndDraftLeads } from "@/lib/prospecting";
-import { countLeadsSince } from "@/lib/leads";
+import { releaseReserved, countReleasedSince, countLeadsByStatus } from "@/lib/leads";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,12 +10,15 @@ export const maxDuration = 300;
 const DAILY_TARGET = 4;
 
 /**
- * Daily prospecting run: surface ~4 new potential customers with a drafted,
- * branded outreach awaiting approval in the Prospecting tab.
+ * Daily prospecting drip: surface ~4 potential customers into the Prospecting
+ * tab for approval. Cheap by design — it promotes leads from the cached
+ * `reserve` pool (filled by the weekly stockpile run / manual button) and only
+ * falls back to a live web-search + AI discovery when the pool can't cover the
+ * day, so the queue never goes silent.
  *
  * Auth: Vercel invokes with `Authorization: Bearer ${CRON_SECRET}`; we fail
- * closed. Idempotent within a day — if a run already produced the day's target
- * (e.g. Vercel retried), we skip so we don't over-spend on search/AI.
+ * closed. Idempotent within a day — counts leads *released today* (not created),
+ * so it stays correct even right after a big stockpile run.
  */
 export async function GET(request: NextRequest) {
   const unauthorized = cronAuthError(request);
@@ -24,20 +27,36 @@ export async function GET(request: NextRequest) {
   const force = isForced(request);
   const since = new Date(Date.now() - 20 * 60 * 60 * 1000).toISOString();
   if (!force) {
-    const already = await countLeadsSince(since);
-    if (already >= DAILY_TARGET) {
-      return NextResponse.json({ skipped: "daily target already met", already });
+    const releasedToday = await countReleasedSince(since);
+    if (releasedToday >= DAILY_TARGET) {
+      return NextResponse.json({ skipped: "daily target already met", releasedToday });
     }
   }
 
-  const result = await discoverAndDraftLeads(DAILY_TARGET, null);
+  // Prefer the cached reserve pool (no search/AI spend).
+  const released = await releaseReserved(DAILY_TARGET);
+  const fromReserve = released.length;
+
+  // Pool short → live-discover the shortfall into reserve, then release it, so
+  // the drip is uniform (everything flows reserve → pending, stamping released_at).
+  let liveCreated = 0;
+  let reason: string | undefined;
+  if (released.length < DAILY_TARGET) {
+    const shortfall = DAILY_TARGET - released.length;
+    const result = await discoverAndDraftLeads(shortfall, null, { status: "reserve" });
+    liveCreated = result.created.length;
+    reason = result.reason;
+    if (liveCreated > 0) released.push(...(await releaseReserved(shortfall)));
+  }
+
+  const reserveRemaining = await countLeadsByStatus("reserve");
   return NextResponse.json({
     ok: true,
-    created: result.created.length,
-    companies: result.created.map((l) => l.companyName),
-    scanned: result.scanned,
-    skipped: result.skipped,
-    webSearchConfigured: result.webSearchConfigured,
-    ...(result.reason ? { reason: result.reason } : {}),
+    released: released.length,
+    fromReserve,
+    liveCreated,
+    reserveRemaining,
+    companies: released.map((l) => l.companyName),
+    ...(reason ? { reason } : {}),
   });
 }

@@ -42,7 +42,7 @@ import PurchaseOrdersSection from "./purchase-orders-section";
 import QuotationsSection from "./quotations-section";
 import ProspectingSection from "./prospecting-section";
 import OpenPOsSection from "./open-pos-section";
-import { listLeads, type Lead } from "@/lib/leads";
+import { listLeads, countLeadsByStatus, type Lead } from "@/lib/leads";
 import UsersSection, { type AdminUser } from "./users-section";
 
 export const dynamic = "force-dynamic";
@@ -202,8 +202,9 @@ export default async function AdminPage() {
   // --- Prospecting (AI-discovered leads + approval) ---------------------------
   if (TAB_ACCESS.prospecting.includes(role)) {
     let leads: Lead[] = [];
+    let reserveCount = 0;
     try {
-      leads = await listLeads();
+      [leads, reserveCount] = await Promise.all([listLeads(), countLeadsByStatus("reserve")]);
     } catch (e) {
       console.error("leads load:", e);
     }
@@ -211,7 +212,13 @@ export default async function AdminPage() {
     tabs.push({
       id: "prospecting",
       label: pendingCount > 0 ? `Prospecting (${pendingCount})` : "Prospecting",
-      node: <ProspectingSection initialLeads={leads} canRun={can(role, "leads.run")} />,
+      node: (
+        <ProspectingSection
+          initialLeads={leads}
+          reserveCount={reserveCount}
+          canRun={can(role, "leads.run")}
+        />
+      ),
     });
   }
 
