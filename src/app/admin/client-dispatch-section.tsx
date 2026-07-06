@@ -66,17 +66,26 @@ export default function ClientDispatchSection({
                   <p key={i} className="text-sm text-[#0E2A47]">{l.name} · {l.qty} × {egp(l.unitPriceEgp)}</p>
                 ))}
               </div>
-              {canConfirm && (
-                <div className="mt-3">
-                  {done.includes(po.id) ? (
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <a
+                  href={`/api/admin/purchase-orders/${po.id}/dispatch-pdf`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-full border border-[#0E2A47]/15 bg-[#F4F8FD] px-3 py-1.5 text-sm font-medium text-[#1668C7] transition hover:bg-[#E4EEFA]"
+                  title={`Client dispatch order for PO-${po.id}`}
+                >
+                  Dispatch order (PO-{po.id})
+                </a>
+                {canConfirm && (
+                  done.includes(po.id) ? (
                     <span className="text-sm font-medium text-[#0E7490]">Dispatched — stock deducted ✓</span>
                   ) : (
                     <button className={primaryBtn} disabled={busyId === po.id} onClick={() => void confirm(po.id)}>
                       {busyId === po.id ? "Dispatching…" : "Confirm dispatch & deduct stock"}
                     </button>
-                  )}
-                </div>
-              )}
+                  )
+                )}
+              </div>
             </div>
           ))}
         </div>

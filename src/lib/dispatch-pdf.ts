@@ -18,7 +18,7 @@ const STATUS_LABEL: Record<string, string> = {
   rejected: "Rejected",
 };
 
-export interface DispatchLine { code: string; name: string; qty: number }
+export interface DispatchLine { code: string; name: string; qty: number; received?: number | null }
 export interface DispatchPdfInput {
   batchId: number;
   reference: string;
@@ -28,10 +28,19 @@ export interface DispatchPdfInput {
   dispatchedAt: string;
   lines: DispatchLine[];
   now?: Date;
+  // --- optional overrides for an OUTBOUND client dispatch ---
+  docNo?: string;
+  fromOverride?: string;
+  toOverride?: string;
+  toLine2?: string;
+  intro?: string;
+  receivedByLabel?: string;
+  /** Replaces the third meta row (default is Status). e.g. ["Linked PO", "PO-7"]. */
+  metaThird?: [string, string];
 }
 
 export async function renderDispatchPdf(input: DispatchPdfInput): Promise<Buffer> {
-  const doNo = `DO-${String(input.batchId).padStart(4, "0")}`;
+  const doNo = input.docNo ?? `DO-${String(input.batchId).padStart(4, "0")}`;
   const dispatched = input.dispatchedAt ? new Date(input.dispatchedAt) : (input.now ?? new Date());
   const { doc, done, x0, contentWidth, contentRight } = await createBrandedDoc({ title: `Dispatch Order ${doNo}` });
 
@@ -42,7 +51,7 @@ export async function renderDispatchPdf(input: DispatchPdfInput): Promise<Buffer
   const meta: [string, string][] = [
     ["Dispatch No.", doNo],
     ["Date", fmtDate(dispatched)],
-    ["Status", STATUS_LABEL[input.status] ?? input.status],
+    input.metaThird ?? ["Status", STATUS_LABEL[input.status] ?? input.status],
   ];
   let my = y + 2;
   for (const [k, v] of meta) {
@@ -57,7 +66,7 @@ export async function renderDispatchPdf(input: DispatchPdfInput): Promise<Buffer
   // --- From / To panel --------------------------------------------------------
   doc.roundedRect(x0, y, contentWidth, 66, 6).fill(PANEL);
   const colW = (contentWidth - 24) / 2;
-  const from = input.supplier || "Factory";
+  const from = input.fromOverride || input.supplier || "Factory";
   const fromAr = hasArabic(from);
   doc.font("Sans").fontSize(8.5).fillColor(MUTED).text("DISPATCHED FROM", x0 + 12, y + 12, { characterSpacing: 1.4, features: NO_LIGATURES });
   doc.font(fromAr ? "Arabic-Bold" : "Sans-Bold").fontSize(11).fillColor(INK)
@@ -66,21 +75,30 @@ export async function renderDispatchPdf(input: DispatchPdfInput): Promise<Buffer
     doc.font("Serif").fontSize(9).fillColor(MUTED).text(`Ref: ${input.reference}`, x0 + 12, y + 42, { width: colW, features: NO_LIGATURES });
   }
   const toX = x0 + 12 + colW + 24;
+  const to = input.toOverride || "Fayek Abrasives — Warehouse";
+  const toAr = hasArabic(to);
   doc.font("Sans").fontSize(8.5).fillColor(MUTED).text("DELIVER TO", toX, y + 12, { characterSpacing: 1.4, features: NO_LIGATURES });
-  doc.font("Sans-Bold").fontSize(11).fillColor(INK).text("Fayek Abrasives — Warehouse", toX, y + 24, { width: colW - 12, features: NO_LIGATURES });
-  doc.font("Serif").fontSize(9).fillColor(MUTED).text("Cairo, Egypt", toX, y + 42, { width: colW - 12, features: NO_LIGATURES });
+  doc.font(toAr ? "Arabic-Bold" : "Sans-Bold").fontSize(11).fillColor(INK)
+    .text(to, toX, y + 24, { width: colW - 12, align: toAr ? "right" : "left", ...(toAr ? {} : { features: NO_LIGATURES }) });
+  doc.font("Serif").fontSize(9).fillColor(MUTED).text(input.toLine2 ?? "Cairo, Egypt", toX, y + 42, { width: colW - 12, features: NO_LIGATURES });
   y += 66 + 18;
 
   // --- Intro ------------------------------------------------------------------
   doc.font("Serif").fontSize(10.5).fillColor(INK)
-    .text("The following goods have been dispatched to the warehouse for receipt and count. Quantities are confirmed by the warehouse on receipt.", x0, y, { width: contentWidth, lineGap: 3, features: NO_LIGATURES });
+    .text(input.intro ?? "The following goods have been dispatched to the warehouse for receipt and count. Quantities are confirmed by the warehouse on receipt.", x0, y, { width: contentWidth, lineGap: 3, features: NO_LIGATURES });
   y = doc.y + 12;
 
   // --- Table ------------------------------------------------------------------
-  const wNum = 26, wQty = 110;
-  const wCode = 150;
-  const wName = contentWidth - wNum - wCode - wQty;
-  const xNum = x0, xCode = xNum + wNum, xName = xCode + wCode, xQty = xName + wName;
+  // Show a separate RECEIVED column once any line carries a confirmed count
+  // (i.e. after the warehouse receipt). Before receipt it stays a single column.
+  const showReceived = input.lines.some((l) => l.received != null);
+  const wNum = 26;
+  const wQtyCol = showReceived ? 78 : 110;
+  const wRecv = showReceived ? 78 : 0;
+  const wCode = showReceived ? 128 : 150;
+  const wName = contentWidth - wNum - wCode - wQtyCol - wRecv;
+  const xNum = x0, xCode = xNum + wNum, xName = xCode + wCode;
+  const xQty = xName + wName, xRecv = xQty + wQtyCol;
   const padV = 7;
   const header = (hy: number): number => {
     doc.rect(x0, hy, contentWidth, 22).fill(ACCENT);
@@ -89,13 +107,15 @@ export async function renderDispatchPdf(input: DispatchPdfInput): Promise<Buffer
     doc.text("#", xNum + 4, ty, { width: wNum - 4, features: NO_LIGATURES });
     doc.text("CODE", xCode + 2, ty, { width: wCode - 4, features: NO_LIGATURES });
     doc.text("PRODUCT", xName + 2, ty, { width: wName - 4, features: NO_LIGATURES });
-    doc.text("QTY DISPATCHED", xQty, ty, { width: wQty - 6, align: "right", features: NO_LIGATURES });
+    doc.text(showReceived ? "DISPATCHED" : "QTY DISPATCHED", xQty, ty, { width: wQtyCol - 6, align: "right", features: NO_LIGATURES });
+    if (showReceived) doc.text("RECEIVED", xRecv, ty, { width: wRecv - 6, align: "right", features: NO_LIGATURES });
     return hy + 22;
   };
   y = header(y);
-  let idx = 1, totalQty = 0;
+  let idx = 1, totalQty = 0, totalRecv = 0, anyRecv = false;
   for (const l of input.lines) {
     totalQty += l.qty;
+    if (l.received != null) { totalRecv += l.received; anyRecv = true; }
     const nameAr = hasArabic(l.name);
     doc.font(nameAr ? "Arabic" : "Serif").fontSize(10);
     const nameH = doc.heightOfString(l.name, { width: wName - 4 });
@@ -106,7 +126,12 @@ export async function renderDispatchPdf(input: DispatchPdfInput): Promise<Buffer
     doc.font("Sans").fontSize(9).fillColor(MUTED).text(String(idx), xNum + 4, cy + 1, { width: wNum - 4, features: NO_LIGATURES });
     doc.font("Sans").fontSize(8.5).fillColor(INK).text(l.code, xCode + 2, cy + 1, { width: wCode - 4, features: NO_LIGATURES });
     doc.font(nameAr ? "Arabic" : "Serif").fontSize(10).fillColor(INK).text(l.name, xName + 2, cy, { width: wName - 4, align: nameAr ? "right" : "left", ...(nameAr ? {} : { features: NO_LIGATURES }) });
-    doc.font("Sans-Bold").fontSize(10).fillColor(INK).text(money(l.qty), xQty, cy, { width: wQty - 6, align: "right", features: NO_LIGATURES });
+    doc.font("Sans-Bold").fontSize(10).fillColor(INK).text(money(l.qty), xQty, cy, { width: wQtyCol - 6, align: "right", features: NO_LIGATURES });
+    if (showReceived) {
+      const short = l.received != null && l.received < l.qty;
+      doc.font("Sans-Bold").fontSize(10).fillColor(l.received == null ? MUTED : short ? "#CC4038" : INK)
+        .text(l.received == null ? "—" : money(l.received), xRecv, cy, { width: wRecv - 6, align: "right", features: NO_LIGATURES });
+    }
     y += rowH;
     doc.moveTo(x0, y).lineTo(contentRight, y).lineWidth(0.5).strokeColor(HAIRLINE).stroke();
     idx++;
@@ -114,10 +139,12 @@ export async function renderDispatchPdf(input: DispatchPdfInput): Promise<Buffer
 
   // --- Total units ------------------------------------------------------------
   y += 10;
-  const boxW = wQty + 90, boxX = contentRight - boxW;
+  const boxW = (showReceived ? wQtyCol + wRecv : wQtyCol) + 90, boxX = contentRight - boxW;
   doc.rect(boxX, y, boxW, 28).fill(INK);
-  doc.font("Sans-Bold").fontSize(9.5).fillColor("#FFFDF9").text("TOTAL UNITS", boxX + 12, y + 9, { width: 100, characterSpacing: 1, features: NO_LIGATURES });
-  doc.font("Sans-Bold").fontSize(12).fillColor("#FFFDF9").text(money(totalQty), boxX, y + 8, { width: boxW - 12, align: "right", features: NO_LIGATURES });
+  doc.font("Sans-Bold").fontSize(9.5).fillColor("#FFFDF9")
+    .text(showReceived ? "TOTAL DISP / RECV" : "TOTAL UNITS", boxX + 12, y + 9, { width: 130, characterSpacing: 1, features: NO_LIGATURES });
+  const totalText = showReceived ? `${money(totalQty)}  /  ${anyRecv ? money(totalRecv) : "—"}` : money(totalQty);
+  doc.font("Sans-Bold").fontSize(12).fillColor("#FFFDF9").text(totalText, boxX, y + 8, { width: boxW - 12, align: "right", features: NO_LIGATURES });
   y += 28 + 22;
 
   if (input.notes && input.notes.trim()) {
@@ -130,7 +157,7 @@ export async function renderDispatchPdf(input: DispatchPdfInput): Promise<Buffer
   // --- Signatures -------------------------------------------------------------
   if (y + 70 > doc.page.height - BOTTOM_MARGIN) { doc.addPage(); y = BAND_HEIGHT + 40; }
   const half = (contentWidth - 40) / 2;
-  for (const [label, xoff] of [["Dispatched by", 0], ["Received by (warehouse)", half + 40]] as [string, number][]) {
+  for (const [label, xoff] of [["Dispatched by", 0], [input.receivedByLabel ?? "Received by (warehouse)", half + 40]] as [string, number][]) {
     doc.moveTo(x0 + xoff, y + 26).lineTo(x0 + xoff + half, y + 26).lineWidth(0.5).strokeColor(MUTED).stroke();
     doc.font("Sans").fontSize(8.5).fillColor(MUTED).text(`${label} — name, signature & date`, x0 + xoff, y + 31, { width: half, characterSpacing: 0.5, features: NO_LIGATURES });
   }

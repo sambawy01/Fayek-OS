@@ -23,7 +23,7 @@ export async function GET(
     notes: batch.notes,
     status: batch.status,
     dispatchedAt: batch.dispatchedAt,
-    lines: batch.lines.map((l) => ({ code: l.slug, name: l.name, qty: l.expectedQty })),
+    lines: batch.lines.map((l) => ({ code: l.slug, name: l.name, qty: l.expectedQty, received: l.receivedQty })),
   });
 
   return new NextResponse(new Uint8Array(pdf), {
