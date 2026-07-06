@@ -46,6 +46,7 @@ import { listLeads, countLeadsByStatus, type Lead } from "@/lib/leads";
 import { listProductionOrders, type ProductionOrder } from "@/lib/production";
 import { availability } from "@/lib/reservations";
 import ProductionSection from "./production-section";
+import FactoryWarehouseSection from "./factory-warehouse-section";
 import UsersSection, { type AdminUser } from "./users-section";
 
 export const dynamic = "force-dynamic";
@@ -301,6 +302,11 @@ export default async function AdminPage() {
           canManage={can(role, "production.manage")}
         />
       ),
+    });
+    tabs.push({
+      id: "factoryWarehouse",
+      label: "Factory Warehouse",
+      node: <FactoryWarehouseSection initialOrders={prodOrders} />,
     });
   }
 

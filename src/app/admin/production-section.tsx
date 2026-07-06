@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import type { ProductionOrder, ProductionStatus } from "@/lib/production";
+import type { ProductionSuggestion } from "@/lib/ai-production";
 
 const primaryBtn = "rounded-full bg-[#1668C7] px-4 py-2 text-sm font-medium text-[#F4F8FD] transition hover:opacity-90 disabled:opacity-50";
 const subtleBtn = "rounded-full border border-[#0E2A47]/15 bg-[#F4F8FD] px-3 py-1.5 text-sm text-[#0E2A47] transition hover:bg-[#E4EEFA] disabled:opacity-50";
@@ -58,6 +59,38 @@ export default function ProductionSection({
   const [error, setError] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [dispatchQty, setDispatchQty] = useState<Record<number, string>>({});
+  const [aiBusy, setAiBusy] = useState(false);
+  const [suggestions, setSuggestions] = useState<(ProductionSuggestion & { qtyStr: string })[] | null>(null);
+
+  async function aiSuggest() {
+    setAiBusy(true); setError(null); setMsg(null); setSuggestions(null);
+    try {
+      const res = await fetch("/api/admin/production-orders/ai-suggest", { method: "POST" });
+      const data = (await res.json()) as { suggestions?: ProductionSuggestion[]; reason?: string };
+      if (!res.ok) { setError(data.reason ?? "AI suggestion failed."); return; }
+      const list = data.suggestions ?? [];
+      setSuggestions(list.map((s) => ({ ...s, qtyStr: String(s.suggestedQty) })));
+      if (list.length === 0) setMsg(data.reason ?? "No production suggestions right now.");
+    } catch { setError("Network error — please try again."); }
+    finally { setAiBusy(false); }
+  }
+
+  async function createFromSuggestion(s: ProductionSuggestion & { qtyStr: string }) {
+    const n = Number(s.qtyStr);
+    if (!(n > 0)) { setError("Enter a quantity."); return; }
+    setError(null); setMsg(null);
+    try {
+      const res = await fetch("/api/admin/production-orders", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug: s.slug, name: s.name, qty: n, note: `AI: ${s.rationale}`.slice(0, 200) }),
+      });
+      if (!res.ok) { setError(await readError(res)); return; }
+      const { order } = (await res.json()) as { order: ProductionOrder };
+      setOrders((p) => [order, ...p]);
+      setSuggestions((prev) => (prev ? prev.filter((x) => x.slug !== s.slug) : prev));
+      setMsg(`Production order #${order.id} created from AI suggestion (pending approval).`);
+    } catch { setError("Network error — please try again."); }
+  }
 
   const counts = orders.reduce<Record<string, number>>((m, o) => { m[o.status] = (m[o.status] ?? 0) + 1; return m; }, {});
   const shown = orders.filter((o) =>
@@ -117,6 +150,11 @@ export default function ProductionSection({
     <section>
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <h2 className="font-serif text-2xl text-[#0E2A47]">Production</h2>
+        {canManage && (
+          <button className={primaryBtn} disabled={aiBusy} onClick={() => void aiSuggest()}>
+            {aiBusy ? "Analysing…" : "✨ AI suggest orders"}
+          </button>
+        )}
       </div>
       <p className="mb-3 text-sm text-[#5B7186]">
         Factory production orders — auto-raised when stock hits an item&rsquo;s reorder point, or created manually.
@@ -125,6 +163,29 @@ export default function ProductionSection({
 
       {msg && <div className="mb-3 rounded-2xl border border-[#1668C7]/30 bg-[#F4F8FD] px-4 py-2 text-sm text-[#0E7490]">{msg}</div>}
       {error && <div className="mb-3 rounded-2xl border border-[#CC4038]/30 bg-[#F4F8FD] px-4 py-2 text-sm text-[#CC4038]">{error}</div>}
+
+      {canManage && suggestions && suggestions.length > 0 && (
+        <div className="mb-4 rounded-2xl border border-[#1668C7]/25 bg-[#F4F8FD] px-3 py-3">
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-xs uppercase tracking-[0.06em] text-[#5B7186]">✨ AI-suggested production (from sales · inventory · cash)</p>
+            <button className="text-xs text-[#5B7186] underline" onClick={() => setSuggestions(null)}>dismiss</button>
+          </div>
+          <div className="space-y-2">
+            {suggestions.map((s) => (
+              <div key={s.slug} className="rounded-xl border border-[#0E2A47]/10 bg-white px-3 py-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm font-medium text-[#0E2A47]">{s.name}</span>
+                  <span className="text-xs text-[#5B7186]">produce</span>
+                  <input className={inputCls + " w-24"} inputMode="numeric" value={s.qtyStr}
+                    onChange={(e) => setSuggestions((prev) => prev ? prev.map((x) => x.slug === s.slug ? { ...x, qtyStr: e.target.value } : x) : prev)} />
+                  <button className={primaryBtn} onClick={() => void createFromSuggestion(s)}>Create order</button>
+                </div>
+                {s.rationale && <p className="mt-1 text-xs italic text-[#5B7186]">{s.rationale}</p>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {canManage && (
         <div className="mb-4 rounded-2xl border border-[#0E2A47]/10 bg-[#F4F8FD] px-3 py-3">
