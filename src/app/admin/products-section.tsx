@@ -302,8 +302,14 @@ function ProductForm({
           <input className={inputCls} inputMode="numeric" value={form.priceEgp} onChange={(e) => set({ priceEgp: e.target.value })} />
         </div>
         <div>
-          <label className={labelCls}>Quantity (empty = untracked)</label>
-          <input className={inputCls} inputMode="numeric" value={form.quantity} placeholder="—" onChange={(e) => set({ quantity: e.target.value })} />
+          <label className={labelCls}>Quantity {product ? "(locked)" : "(empty = untracked)"}</label>
+          {product ? (
+            <div className="rounded-xl border border-[#0E2A47]/10 bg-[#EEF3F9] px-3 py-2 text-sm text-[#5B7186]">
+              {form.quantity === "" ? "Untracked" : form.quantity} · <span className="text-[#0E2A47]">changes require Owner approval — use “Adjust” in the list</span>
+            </div>
+          ) : (
+            <input className={inputCls} inputMode="numeric" value={form.quantity} placeholder="—" onChange={(e) => set({ quantity: e.target.value })} />
+          )}
         </div>
       </div>
 
@@ -375,50 +381,44 @@ function ProductForm({
 
 /* ---------- inline quantity editor ---------- */
 
+/**
+ * Stock can never be edited directly — this requests an adjustment that ONLY
+ * the Owner can approve. Shows the current qty (read-only) and, on "Adjust",
+ * captures a new value + reason and raises an approval.
+ */
 function QuantityEditor({
   product,
-  adminKey,
-  onUpdated,
   onError,
 }: {
   product: Product;
-  adminKey: string;
-  onUpdated: (p: Product) => void;
   onError: (message: string) => void;
 }) {
-  const [value, setValue] = useState(
-    product.quantity === null ? "" : String(product.quantity)
-  );
+  const current = product.quantity === null ? "—" : String(product.quantity);
+  const [open, setOpen] = useState(false);
+  const [value, setValue] = useState(current === "—" ? "" : current);
+  const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
-  const saved = product.quantity === null ? "" : String(product.quantity);
-  const dirty = value.trim() !== saved;
+  const [sent, setSent] = useState(false);
 
-  async function save() {
+  async function request() {
     const trimmed = value.trim();
-    let quantity: number | null = null;
+    let requestedQty: number | null = null;
     if (trimmed !== "") {
-      quantity = Number(trimmed);
-      if (!Number.isInteger(quantity) || quantity < 0) {
-        onError("Quantity must be a whole number (or empty for untracked).");
-        return;
-      }
+      const n = Number(trimmed);
+      if (!Number.isInteger(n) || n < 0) return onError("New quantity must be a whole number ≥ 0 (or empty for untracked).");
+      requestedQty = n;
     }
+    if (!reason.trim()) return onError("Add a reason for the adjustment.");
     setBusy(true);
     try {
-      const res = await fetch(
-        `/api/admin/catalog/${encodeURIComponent(product.slug)}`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json", ...authHeaders(adminKey) },
-          body: JSON.stringify({ quantity }),
-        }
-      );
-      if (!res.ok) {
-        onError(await readError(res));
-        return;
-      }
-      const payload = (await res.json()) as { product: Product };
-      onUpdated(payload.product);
+      const res = await fetch("/api/admin/stock-adjustments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug: product.slug, requestedQty, reason: reason.trim() }),
+      });
+      if (!res.ok) return onError(await readError(res));
+      setSent(true);
+      setOpen(false);
     } catch {
       onError("Network error — please try again.");
     } finally {
@@ -427,28 +427,28 @@ function QuantityEditor({
   }
 
   return (
-    <span className="inline-flex items-center gap-1.5">
-      <label className="text-xs text-[#5B7186]">Qty</label>
-      <input
-        className="w-16 rounded-lg border border-[#0E2A47]/15 bg-white px-2 py-1 text-center text-sm text-[#0E2A47] outline-none focus:border-[#1668C7]"
-        inputMode="numeric"
-        value={value}
-        placeholder="—"
-        onChange={(e) => setValue(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" && dirty && !busy) void save();
-        }}
-        aria-label={`Quantity of ${product.en.name}`}
-      />
-      {dirty && (
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => void save()}
-          className="rounded-full bg-[#1668C7] px-2.5 py-1 text-xs font-medium text-[#F4F8FD] disabled:opacity-50"
-        >
-          {busy ? "…" : "Save"}
-        </button>
+    <span className="inline-flex flex-col items-start gap-1">
+      <span className="inline-flex items-center gap-1.5">
+        <label className="text-xs text-[#5B7186]">Qty</label>
+        <span className="min-w-[2rem] rounded-lg bg-[#EEF3F9] px-2 py-1 text-center text-sm font-medium text-[#0E2A47]" title="Locked — changes require Owner approval">{current}</span>
+        {sent ? (
+          <span className="text-xs font-medium text-[#0E7490]">Sent to Owner ✓</span>
+        ) : (
+          <button type="button" onClick={() => setOpen(!open)}
+            className="rounded-full border border-[#0E2A47]/15 bg-[#F4F8FD] px-2.5 py-1 text-xs font-medium text-[#1668C7] hover:bg-[#E4EEFA]">
+            Adjust
+          </button>
+        )}
+      </span>
+      {open && !sent && (
+        <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-[#0E2A47]/10 bg-[#F4F8FD] p-2">
+          <input className="w-16 rounded-lg border border-[#0E2A47]/15 bg-white px-2 py-1 text-center text-sm" inputMode="numeric" placeholder="New qty" value={value} onChange={(e) => setValue(e.target.value)} />
+          <input className="w-44 rounded-lg border border-[#0E2A47]/15 bg-white px-2 py-1 text-sm" placeholder="Reason (required)" value={reason} onChange={(e) => setReason(e.target.value)} />
+          <button type="button" disabled={busy} onClick={() => void request()}
+            className="rounded-full bg-[#1668C7] px-2.5 py-1 text-xs font-medium text-white disabled:opacity-50">
+            {busy ? "…" : "Request approval"}
+          </button>
+        </div>
       )}
     </span>
   );
@@ -566,8 +566,6 @@ function ProductRow({
               <QuantityEditor
                 key={`${product.slug}-${product.quantity}`}
                 product={product}
-                adminKey={adminKey}
-                onUpdated={onUpdated}
                 onError={setError}
               />
             ) : (

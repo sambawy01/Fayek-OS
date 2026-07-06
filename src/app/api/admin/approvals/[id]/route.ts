@@ -6,7 +6,7 @@ import {
   setApprovalRecommendation,
 } from "@/lib/approvals";
 import { getBatch, setBatchStatus } from "@/lib/batches";
-import { addQuantities } from "@/lib/catalog";
+import { addQuantities, setQuantity } from "@/lib/catalog";
 import { recommendForDiscrepancy } from "@/lib/ai-recommend";
 
 export const runtime = "nodejs";
@@ -57,6 +57,19 @@ export async function POST(
   const decision = body.decision;
   if (decision !== "approve" && decision !== "reject") {
     return NextResponse.json({ error: "Choose approve or reject." }, { status: 400 });
+  }
+
+  // Stock adjustments are OWNER-only, and on approval set the absolute quantity.
+  if (approval.type === "stock_adjustment") {
+    if (guard.user.role !== "owner") {
+      return NextResponse.json({ error: "Only the Owner can decide a stock adjustment." }, { status: 403 });
+    }
+    if (decision === "approve") {
+      const d = approval.detail as { slug?: string; requestedQty?: number | null };
+      if (typeof d.slug === "string") {
+        await setQuantity(d.slug, d.requestedQty === undefined ? null : d.requestedQty);
+      }
+    }
   }
 
   // Apply the stock/batch side effects for a batch discrepancy.

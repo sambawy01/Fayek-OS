@@ -222,6 +222,13 @@ export function addQuery(slug: string, qty: number) {
   `;
 }
 
+/** Set a product's absolute quantity (used to apply an owner-approved adjustment). */
+export async function setQuantity(slug: string, quantity: number | null): Promise<void> {
+  await db()`
+    UPDATE products SET quantity = ${quantity}, updated_at = now() WHERE slug = ${slug}
+  `;
+}
+
 /** Decrement stock for several items in ONE transaction (all-or-nothing). */
 export async function decrementQuantities(items: { slug: string; qty: number }[]): Promise<void> {
   const qs = items.filter((i) => i.qty > 0).map((i) => decrementQuery(i.slug, i.qty));

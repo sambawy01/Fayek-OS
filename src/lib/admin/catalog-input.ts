@@ -186,7 +186,8 @@ export function applyProductInput(product: Product, input: ProductInput): Produc
     ...(input.photo !== undefined ? { photo: input.photo } : {}),
     ...(input.alt !== undefined ? { alt: input.alt } : {}),
     ...(input.usage !== undefined ? { usage: input.usage } : {}),
-    ...(input.quantity !== undefined ? { quantity: input.quantity } : {}),
+    // NOTE: quantity is intentionally NOT applied on edit — stock changes only
+    // via an owner-approved stock adjustment (see /api/admin/stock-adjustments).
     ...(input.soldOut !== undefined ? { soldOut: input.soldOut } : {}),
     ...(input.active !== undefined ? { active: input.active } : {}),
     updatedAt: new Date().toISOString(),

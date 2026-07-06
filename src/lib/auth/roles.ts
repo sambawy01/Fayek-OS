@@ -43,7 +43,7 @@ export const PERMISSIONS = {
   // Factory batches / receiving
   "batches.view": ["owner", "admin", "inventory", "factory"],
   "batches.create": ["owner", "admin", "factory"], // declare a factory dispatch
-  "batches.receive": ["owner", "admin", "inventory"], // count & receive — NOT factory
+  "batches.receive": ["inventory"], // ONLY inventory confirms the received count; owner/admin oversee via escalations
   // Order book (purchase orders across their lifecycle)
   "orders.view": ["owner", "admin", "sales"],
   // Sales: quotations + purchase orders + outreach

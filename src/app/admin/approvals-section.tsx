@@ -65,6 +65,11 @@ function ApprovalCard({
   const [busy, setBusy] = useState(false);
   const [rec, setRec] = useState(approval.aiRecommendation);
   const detail = (approval.detail ?? {}) as DiscDetail;
+  const isStock = approval.type === "stock_adjustment";
+  const sd = isStock
+    ? (approval.detail as { name?: string; currentQty?: number | null; requestedQty?: number | null; reason?: string; requestedBy?: string })
+    : null;
+  const fmtQ = (q: number | null | undefined) => (q === null || q === undefined ? "untracked" : String(q));
 
   async function post(body: Record<string, unknown>) {
     const res = await fetch(`/api/admin/approvals/${approval.id}`, {
@@ -102,6 +107,19 @@ function ApprovalCard({
         </p>
       )}
 
+      {sd && (
+        <div className="mt-3 rounded-xl border border-[#0E2A47]/10 bg-white px-4 py-3">
+          <p className="text-xs font-medium uppercase tracking-[0.08em] text-[#5B7186]">Requested stock change</p>
+          <p className="mt-1 flex items-center gap-2 text-lg font-semibold text-[#0E2A47]">
+            <span className="rounded-lg bg-[#EEF3F9] px-2.5 py-0.5">{fmtQ(sd.currentQty)}</span>
+            <span className="text-[#1668C7]">→</span>
+            <span className="rounded-lg bg-[#E4EEFA] px-2.5 py-0.5 text-[#1668C7]">{fmtQ(sd.requestedQty)}</span>
+          </p>
+          {sd.reason && <p className="mt-2 text-sm text-[#0E2A47]"><span className="text-[#5B7186]">Reason:</span> {sd.reason}</p>}
+          {sd.requestedBy && <p className="mt-1 text-xs text-[#5B7186]">Requested by {sd.requestedBy}</p>}
+        </div>
+      )}
+
       {detail.lines && detail.lines.length > 0 && (
         <table className="mt-3 w-full text-sm">
           <thead>
@@ -125,22 +143,24 @@ function ApprovalCard({
         </table>
       )}
 
-      <div className="mt-3 rounded-xl border border-[#1668C7]/20 bg-white px-3 py-2">
-        <p className="text-xs font-medium uppercase tracking-[0.08em] text-[#1668C7]">Executive AI recommendation</p>
-        {rec ? (
-          <p className="mt-1 whitespace-pre-wrap text-sm text-[#0E2A47]">{rec}</p>
-        ) : (
-          <button className={`${subtleBtn} mt-1`} disabled={busy} onClick={() => void getRec()}>
-            {busy ? "Thinking…" : "Get AI recommendation"}
-          </button>
-        )}
-      </div>
+      {!isStock && (
+        <div className="mt-3 rounded-xl border border-[#1668C7]/20 bg-white px-3 py-2">
+          <p className="text-xs font-medium uppercase tracking-[0.08em] text-[#1668C7]">Executive AI recommendation</p>
+          {rec ? (
+            <p className="mt-1 whitespace-pre-wrap text-sm text-[#0E2A47]">{rec}</p>
+          ) : (
+            <button className={`${subtleBtn} mt-1`} disabled={busy} onClick={() => void getRec()}>
+              {busy ? "Thinking…" : "Get AI recommendation"}
+            </button>
+          )}
+        </div>
+      )}
 
       <input className="mt-3 w-full rounded-xl border border-[#0E2A47]/15 bg-white px-3 py-2 text-sm text-[#0E2A47] outline-none focus:border-[#1668C7]"
         placeholder="Decision note (required to reject)…" value={note} onChange={(e) => setNote(e.target.value)} />
       <div className="mt-3 flex flex-wrap gap-2">
         <button className={primaryBtn} disabled={busy} onClick={() => void decide("approve")}>
-          Approve — accept received into stock
+          {isStock ? "Approve — apply new stock" : "Approve — accept received into stock"}
         </button>
         <button className={dangerBtn} disabled={busy} onClick={() => void decide("reject")}>
           Reject
