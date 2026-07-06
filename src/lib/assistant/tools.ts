@@ -1225,7 +1225,7 @@ async function execFinanceSummary(
   const lines = [
     `P&L for ${pnl.period.label}:`,
     `Revenue — ${pnl.revenue.totalEgp} EGP total`,
-    `  · shop orders: ${pnl.revenue.shopEgp} EGP`,
+    `  · sales settled: ${pnl.revenue.shopEgp} EGP`,
     `  · cash/other income: ${pnl.revenue.manualIncomeEgp} EGP`,
     `Expenses — ${pnl.expenses.totalEgp} EGP total`,
   ];

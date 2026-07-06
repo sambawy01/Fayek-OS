@@ -198,3 +198,31 @@ export async function invoicePurchaseOrder(
   await db()`UPDATE purchase_orders SET receivable_id = ${rec.id}, status = ${nextStatus}, updated_at = now() WHERE id = ${id}`;
   return getPurchaseOrder(id);
 }
+
+/**
+ * Sales summary for the last `days` from PURCHASE ORDERS (the order book) —
+ * revenue, order count and top products. Excludes cancelled POs. Used by the
+ * sales report (replacing the retired storefront-orders source).
+ */
+export async function purchaseOrderSalesSummary(days: number): Promise<{
+  revenueEgp: number;
+  orderCount: number;
+  topProducts: { name: string; qty: number }[];
+}> {
+  const head = (await db()`
+    SELECT COALESCE(SUM(total_egp),0)::int AS revenue, COUNT(*)::int AS n
+    FROM purchase_orders
+    WHERE status <> 'cancelled' AND created_at >= now() - make_interval(days => ${days})
+  `) as { revenue: number; n: number }[];
+  const top = (await db()`
+    SELECT l.name AS name, SUM(l.qty)::int AS qty
+    FROM purchase_order_lines l JOIN purchase_orders po ON po.id = l.po_id
+    WHERE po.status <> 'cancelled' AND po.created_at >= now() - make_interval(days => ${days})
+    GROUP BY l.name ORDER BY qty DESC LIMIT 5
+  `) as { name: string; qty: number }[];
+  return {
+    revenueEgp: Number(head[0]?.revenue ?? 0),
+    orderCount: Number(head[0]?.n ?? 0),
+    topProducts: top.map((r) => ({ name: r.name, qty: Number(r.qty) })),
+  };
+}

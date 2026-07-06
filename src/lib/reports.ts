@@ -1,7 +1,6 @@
-import { listOrders } from "./orders";
-import { orderRevenueEgp } from "./reports/weekly-report";
 import { getCatalog } from "./catalog";
 import { listReceivables } from "./receivables";
+import { purchaseOrderSalesSummary } from "./sales";
 
 const LOW_STOCK = 5;
 
@@ -25,24 +24,13 @@ export interface ReceivablesReport {
 }
 
 export async function buildSalesReport(days = 30): Promise<SalesReport> {
-  const orders = await listOrders({ limit: 500 });
-  const cutoff = Date.now() - days * 86_400_000;
-  const recent = orders.filter((o) => new Date(o.createdAt).getTime() >= cutoff);
-  const qtyByName = new Map<string, number>();
-  for (const o of recent) {
-    for (const it of o.items) {
-      qtyByName.set(it.names.en, (qtyByName.get(it.names.en) ?? 0) + it.qty);
-    }
-  }
-  const topProducts = [...qtyByName.entries()]
-    .map(([name, qty]) => ({ name, qty }))
-    .sort((a, b) => b.qty - a.qty)
-    .slice(0, 5);
+  // Sales = purchase orders (the order book). The storefront-orders source is retired.
+  const s = await purchaseOrderSalesSummary(days);
   return {
     periodDays: days,
-    revenueEgp: orderRevenueEgp(recent),
-    orderCount: recent.length,
-    topProducts,
+    revenueEgp: s.revenueEgp,
+    orderCount: s.orderCount,
+    topProducts: s.topProducts,
   };
 }
 

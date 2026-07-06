@@ -109,7 +109,7 @@ function SummaryCards({ pnl }: { pnl: PnL }) {
       value: egp(pnl.revenue.totalEgp),
       cls: "bg-[#5B7186]/10 border-[#5B7186]/25 text-[#3B5578]",
       sub: [
-        `Shop ${egp(pnl.revenue.shopEgp)}`,
+        `Sales settled ${egp(pnl.revenue.shopEgp)}`,
         `Other ${egp(pnl.revenue.manualIncomeEgp)}`,
       ],
     },
@@ -128,7 +128,7 @@ function SummaryCards({ pnl }: { pnl: PnL }) {
         pnl.netEgp >= 0
           ? "bg-[#1668C7]/10 border-[#1668C7]/25 text-[#1668C7]"
           : "bg-[#CC4038]/10 border-[#CC4038]/25 text-[#CC4038]",
-      sub: [`${pnl.counts.revenueOrders} paid orders`],
+      sub: [`${pnl.counts.revenueOrders} payments received`],
     },
   ];
   return (

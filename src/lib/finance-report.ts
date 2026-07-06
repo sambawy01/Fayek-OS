@@ -1,5 +1,4 @@
-import { listOrders, type StoredOrder } from "./orders";
-import { orderRevenueEgp, revenueOrders } from "./reports/weekly-report";
+import { paymentsBetween } from "./receivables";
 import {
   filterByPeriod,
   listLedger,
@@ -216,22 +215,12 @@ export interface PnL {
 // --- Pure compute -------------------------------------------------------------
 
 export interface PnLInputs {
-  orders: StoredOrder[];
+  /** Sales revenue = settlements (payments) received in the period. */
+  salesEgp: number;
+  salesCount: number;
   ledger: LedgerEntry[];
   failures?: string[];
   now?: Date;
-}
-
-/** Cairo calendar date key of an instant. */
-function cairoKeyOf(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: CAIRO_TZ,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(d);
 }
 
 /**
@@ -242,13 +231,9 @@ function cairoKeyOf(iso: string): string {
 export function computePnL(period: PnLPeriod, inputs: PnLInputs): PnL {
   const now = inputs.now ?? new Date();
 
-  // --- shop orders (by CREATED date, Cairo) ---
-  const inRangeOrders = inputs.orders.filter((o) => {
-    const k = cairoKeyOf(o.createdAt);
-    return k >= period.from && k <= period.to;
-  });
-  const shopEgp = orderRevenueEgp(inRangeOrders);
-  const revenueOrderCount = revenueOrders(inRangeOrders).length;
+  // --- sales revenue = settlements (payments) received in the period ---
+  const shopEgp = inputs.salesEgp;
+  const revenueOrderCount = inputs.salesCount;
 
   // --- manual ledger entries in range ---
   const inRangeEntries = filterByPeriod(inputs.ledger, {
@@ -291,12 +276,12 @@ export function computePnL(period: PnLPeriod, inputs: PnLInputs): PnL {
 // --- Live gather --------------------------------------------------------------
 
 export interface PnLDataSources {
-  listOrders: typeof listOrders;
+  paymentsBetween: typeof paymentsBetween;
   listLedger: typeof listLedger;
 }
 
 const liveSources: PnLDataSources = {
-  listOrders,
+  paymentsBetween,
   listLedger,
 };
 
@@ -313,12 +298,14 @@ export async function buildPnL(
   const sources = options.sources ?? liveSources;
   const failures: string[] = [];
 
-  let orders: StoredOrder[] = [];
+  let salesEgp = 0, salesCount = 0;
   try {
-    orders = await sources.listOrders({ limit: 200 });
+    const s = await sources.paymentsBetween(period.from, period.to);
+    salesEgp = s.totalEgp;
+    salesCount = s.count;
   } catch (error) {
-    console.error("[finance-report] Failed to load shop orders:", error);
-    failures.push("shop orders");
+    console.error("[finance-report] Failed to load settlements:", error);
+    failures.push("settlements");
   }
 
   let ledger: LedgerEntry[] = [];
@@ -330,7 +317,8 @@ export async function buildPnL(
   }
 
   return computePnL(period, {
-    orders,
+    salesEgp,
+    salesCount,
     ledger,
     failures,
     now: options.now,
@@ -406,7 +394,7 @@ export function pnlToCsv(pnl: PnL): string {
   rows.push("");
 
   rows.push(csvRow(["Summary"]));
-  rows.push(csvRow(["Revenue — shop orders", pnl.revenue.shopEgp]));
+  rows.push(csvRow(["Revenue — sales settled", pnl.revenue.shopEgp]));
   rows.push(csvRow(["Revenue — manual income", pnl.revenue.manualIncomeEgp]));
   rows.push(csvRow(["Revenue — TOTAL", pnl.revenue.totalEgp]));
   rows.push("");
@@ -443,7 +431,7 @@ export function pnlToLetterheadBody(pnl: PnL): string {
   lines.push("");
 
   lines.push("# Revenue");
-  lines.push(`- Shop orders: ${egp(pnl.revenue.shopEgp)}`);
+  lines.push(`- Sales settled: ${egp(pnl.revenue.shopEgp)}`);
   lines.push(`- Other income (cash, gift cards): ${egp(pnl.revenue.manualIncomeEgp)}`);
   lines.push(`- Total revenue: ${egp(pnl.revenue.totalEgp)}`);
   lines.push("");
@@ -467,7 +455,7 @@ export function pnlToLetterheadBody(pnl: PnL): string {
 
   lines.push("# Notes");
   lines.push(
-    "- Revenue counts confirmed, shipped and delivered shop orders, plus any manual cash/other income."
+    "- Revenue counts settlements (payments) actually received, plus any manual cash/other income."
   );
 
   return lines.join("\n");

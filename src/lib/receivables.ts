@@ -204,6 +204,19 @@ export async function recordPayment(
   return getReceivable(id);
 }
 
+/**
+ * Settlements (payments actually received) between two Cairo date keys
+ * (YYYY-MM-DD, inclusive) — the revenue basis for the P&L.
+ */
+export async function paymentsBetween(fromKey: string, toKey: string): Promise<{ totalEgp: number; count: number }> {
+  const rows = (await db()`
+    SELECT COALESCE(SUM(amount_egp),0)::int AS total, COUNT(*)::int AS n
+    FROM receivable_payments
+    WHERE (paid_at AT TIME ZONE 'Africa/Cairo')::date BETWEEN ${fromKey}::date AND ${toKey}::date
+  `) as { total: number; n: number }[];
+  return { totalEgp: Number(rows[0]?.total ?? 0), count: Number(rows[0]?.n ?? 0) };
+}
+
 /** Total outstanding across open receivables (for reports/finance). */
 export async function totalOutstanding(): Promise<number> {
   const rows = (await db()`
