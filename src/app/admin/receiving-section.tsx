@@ -75,18 +75,33 @@ export default function ReceivingSection({
     finally { setBusy(false); }
   }
 
+  const factoryOnly = canCreate && !canReceive;
+  const awaiting = batches.filter((b) => b.status === "dispatched").length;
+  const ordered = [...batches].sort((a, b) => {
+    const rank = (s: string) => (s === "dispatched" ? 0 : s === "pending_approval" ? 1 : 2);
+    return rank(a.status) - rank(b.status) || b.id - a.id;
+  });
+
   return (
     <section>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="font-serif text-2xl text-[#0E2A47]">Receiving</h2>
+        <h2 className="font-serif text-2xl text-[#0E2A47]">{factoryOnly ? "Factory Dispatch" : "Receiving"}</h2>
         {canCreate && !adding && (
           <button className={primaryBtn} onClick={() => setAdding(true)}>New dispatch</button>
         )}
       </div>
       <p className="mb-4 text-sm text-[#5B7186]">
-        Factory batches dispatched to the warehouse. Inventory receives and
-        counts each; any discrepancy is escalated to the Owner/Admin for a decision.
+        {factoryOnly
+          ? "Dispatch a batch to the warehouse. Inventory confirms the received count; you'll see the status update here."
+          : "Factory batches dispatched to the warehouse. Confirm the received count on each; adjusting a quantity that differs from expected escalates to Owner/Admin for approval before stock is added."}
       </p>
+
+      {canReceive && awaiting > 0 && (
+        <div className="mb-4 flex items-center gap-2 rounded-2xl border border-[#1668C7]/25 bg-[#E4EEFA] px-5 py-3 text-sm text-[#0E2A47]">
+          <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#1668C7] text-xs font-bold text-white">{awaiting}</span>
+          <span><b>{awaiting}</b> factory {awaiting === 1 ? "dispatch" : "dispatches"} awaiting your confirmation — receive &amp; count below.</span>
+        </div>
+      )}
 
       {error && (
         <div className="mb-4 rounded-2xl border border-[#CC4038]/30 bg-[#F4F8FD] px-5 py-3 text-sm text-[#CC4038]">{error}</div>
@@ -133,7 +148,7 @@ export default function ReceivingSection({
             No batches yet.
           </div>
         )}
-        {batches.map((b) => (
+        {ordered.map((b) => (
           <BatchRow key={b.id} batch={b} open={openId === b.id} canReceive={canReceive}
             onToggle={() => setOpenId(openId === b.id ? null : b.id)}
             onUpdated={(nb) => setBatches((prev) => prev.map((x) => x.id === nb.id ? nb : x))} />
@@ -237,8 +252,12 @@ function BatchRow({
           </table>
           {batch.status === "dispatched" && canReceive && (
             <div className="mt-3">
+              <p className="mb-2 text-xs text-[#5B7186]">
+                Enter the actual received quantity per line. Any figure that differs from expected
+                <span className="font-medium text-[#8A5A12]"> escalates to Owner/Admin</span> for approval before stock is added.
+              </p>
               <button className={primaryBtn} disabled={busy} onClick={() => void receive()}>
-                {busy ? "Receiving…" : "Receive & count"}
+                {busy ? "Receiving…" : "Receive & confirm"}
               </button>
             </div>
           )}

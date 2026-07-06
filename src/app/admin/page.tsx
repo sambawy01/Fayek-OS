@@ -209,7 +209,7 @@ export default async function AdminPage() {
     });
   }
 
-  // --- Receiving (factory batches) --------------------------------------------
+  // --- Factory dispatch / Receiving (factory batches) -------------------------
   if (TAB_ACCESS.receiving.includes(role)) {
     let batches: Batch[] = [];
     let productOptions: { slug: string; name: string }[] = [];
@@ -222,9 +222,19 @@ export default async function AdminPage() {
     } catch (e) {
       console.error("receiving load:", e);
     }
+    // Dispatched batches awaiting warehouse confirmation — surfaced as a badge
+    // so a factory dispatch "pops up" for whoever receives.
+    const awaitingReceipt = batches.filter((b) => b.status === "dispatched").length;
+    // Factory only dispatches; everyone else receives/confirms.
+    const isFactoryOnly = role === "factory";
+    const label = isFactoryOnly
+      ? "Factory Dispatch"
+      : awaitingReceipt > 0
+        ? `Receiving (${awaitingReceipt})`
+        : "Receiving";
     tabs.push({
       id: "receiving",
-      label: "Receiving",
+      label,
       node: (
         <ReceivingSection
           initialBatches={batches}
