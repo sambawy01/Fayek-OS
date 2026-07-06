@@ -75,34 +75,19 @@ export async function createReceivable(
   },
   createdBy: number | null
 ): Promise<ReceivableDetail> {
-  const rows = (await db()`
-    INSERT INTO receivables (company_id, company_name, order_ref, total_egp, due_date, notes, created_by)
-    VALUES (${input.companyId}, ${input.companyName}, ${input.orderRef ?? ""},
-            ${input.totalEgp}, ${input.dueDate ?? null}, ${input.notes ?? ""}, ${createdBy})
-    RETURNING *
-  `) as RRow[];
-  const id = Number(rows[0].id);
+  const advAmt = input.advance && input.advance.amountEgp > 0 ? Math.round(input.advance.amountEgp) : 0;
+  const advMethod = input.advance?.method ?? "cash";
+  const remaining = Math.max(0, input.totalEgp - advAmt);
 
-  // Optional advance = first payment.
-  if (input.advance && input.advance.amountEgp > 0) {
-    await db()`
-      INSERT INTO receivable_payments (receivable_id, amount_egp, method, kind, recorded_by)
-      VALUES (${id}, ${Math.round(input.advance.amountEgp)}, ${input.advance.method}, 'advance', ${createdBy})
-    `;
-  }
-
-  // Installment plan: explicit schedule wins; otherwise auto-split.
-  const advance = input.advance?.amountEgp ?? 0;
-  const remaining = Math.max(0, input.totalEgp - advance);
+  // Build the installment schedule up front (explicit wins; else auto-split),
+  // as parallel arrays so the whole receivable — header + advance payment +
+  // installments — inserts ATOMICALLY in one data-modifying CTE.
+  const seqs: number[] = [], dues: (string | null)[] = [], amts: number[] = [];
   if (input.installments && input.installments.length > 0) {
     let seq = 1;
     for (const it of input.installments) {
       if (!(it.amountEgp > 0)) continue;
-      await db()`
-        INSERT INTO installments (receivable_id, seq, due_date, amount_egp)
-        VALUES (${id}, ${seq}, ${it.dueDate ?? null}, ${Math.round(it.amountEgp)})
-      `;
-      seq++;
+      seqs.push(seq); dues.push(it.dueDate ?? null); amts.push(Math.round(it.amountEgp)); seq++;
     }
   } else {
     const n = input.installmentCount ?? 0;
@@ -113,13 +98,32 @@ export async function createReceivable(
         const amt = i === n - 1 ? remaining - base * (n - 1) : base; // last picks up rounding
         const due = new Date(first);
         due.setMonth(due.getMonth() + i);
-        await db()`
-          INSERT INTO installments (receivable_id, seq, due_date, amount_egp)
-          VALUES (${id}, ${i + 1}, ${due.toISOString().slice(0, 10)}, ${amt})
-        `;
+        seqs.push(i + 1); dues.push(due.toISOString().slice(0, 10)); amts.push(amt);
       }
     }
   }
+
+  const rows = (await db()`
+    WITH r AS (
+      INSERT INTO receivables (company_id, company_name, order_ref, total_egp, due_date, notes, created_by)
+      VALUES (${input.companyId}, ${input.companyName}, ${input.orderRef ?? ""},
+              ${input.totalEgp}, ${input.dueDate ?? null}, ${input.notes ?? ""}, ${createdBy})
+      RETURNING id
+    ),
+    adv AS (
+      INSERT INTO receivable_payments (receivable_id, amount_egp, method, kind, recorded_by)
+      SELECT r.id, ${advAmt}, ${advMethod}, 'advance', ${createdBy} FROM r WHERE ${advAmt} > 0
+      RETURNING 1
+    ),
+    ins AS (
+      INSERT INTO installments (receivable_id, seq, due_date, amount_egp)
+      SELECT r.id, t.seq, t.due, t.amt
+      FROM r, unnest(${seqs}::int[], ${dues}::date[], ${amts}::int[]) AS t(seq, due, amt)
+      RETURNING 1
+    )
+    SELECT id FROM r
+  `) as { id: number }[];
+  const id = Number(rows[0].id);
 
   await refreshStatus(id);
   return (await getReceivable(id))!;

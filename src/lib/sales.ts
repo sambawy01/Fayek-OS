@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { decrementQuantities } from "./catalog";
+import { decrementQuery } from "./catalog";
 import { createReceivable } from "./receivables";
 import { dateOnly, isoString } from "./db-dates";
 
@@ -52,18 +52,25 @@ export async function createQuotation(
   createdBy: number | null
 ): Promise<QuotationDetail> {
   const total = lineTotal(input.lines);
+  const slugs = input.lines.map((l) => l.slug);
+  const names = input.lines.map((l) => l.name);
+  const qtys = input.lines.map((l) => Math.round(l.qty));
+  const prices = input.lines.map((l) => Math.round(l.unitPriceEgp));
   const rows = (await db()`
-    INSERT INTO quotations (company_id, company_name, valid_until, notes, total_egp, created_by)
-    VALUES (${input.companyId}, ${input.companyName}, ${input.validUntil}, ${input.notes}, ${total}, ${createdBy})
-    RETURNING id
+    WITH q AS (
+      INSERT INTO quotations (company_id, company_name, valid_until, notes, total_egp, created_by)
+      VALUES (${input.companyId}, ${input.companyName}, ${input.validUntil}, ${input.notes}, ${total}, ${createdBy})
+      RETURNING id
+    ),
+    l AS (
+      INSERT INTO quotation_lines (quotation_id, slug, name, qty, unit_price_egp)
+      SELECT q.id, t.slug, t.name, t.qty, t.price
+      FROM q, unnest(${slugs}::text[], ${names}::text[], ${qtys}::int[], ${prices}::int[]) AS t(slug, name, qty, price)
+      RETURNING 1
+    )
+    SELECT id FROM q
   `) as { id: number }[];
   const id = Number(rows[0].id);
-  for (const l of input.lines) {
-    await db()`
-      INSERT INTO quotation_lines (quotation_id, slug, name, qty, unit_price_egp)
-      VALUES (${id}, ${l.slug}, ${l.name}, ${Math.round(l.qty)}, ${Math.round(l.unitPriceEgp)})
-    `;
-  }
   return (await getQuotation(id))!;
 }
 
@@ -100,18 +107,25 @@ export async function createPurchaseOrder(
   createdBy: number | null
 ): Promise<PurchaseOrderDetail> {
   const total = lineTotal(input.lines);
+  const slugs = input.lines.map((l) => l.slug);
+  const names = input.lines.map((l) => l.name);
+  const qtys = input.lines.map((l) => Math.round(l.qty));
+  const prices = input.lines.map((l) => Math.round(l.unitPriceEgp));
   const rows = (await db()`
-    INSERT INTO purchase_orders (company_id, company_name, quotation_id, notes, total_egp, created_by)
-    VALUES (${input.companyId}, ${input.companyName}, ${input.quotationId}, ${input.notes}, ${total}, ${createdBy})
-    RETURNING id
+    WITH po AS (
+      INSERT INTO purchase_orders (company_id, company_name, quotation_id, notes, total_egp, created_by)
+      VALUES (${input.companyId}, ${input.companyName}, ${input.quotationId}, ${input.notes}, ${total}, ${createdBy})
+      RETURNING id
+    ),
+    l AS (
+      INSERT INTO purchase_order_lines (po_id, slug, name, qty, unit_price_egp)
+      SELECT po.id, t.slug, t.name, t.qty, t.price
+      FROM po, unnest(${slugs}::text[], ${names}::text[], ${qtys}::int[], ${prices}::int[]) AS t(slug, name, qty, price)
+      RETURNING 1
+    )
+    SELECT id FROM po
   `) as { id: number }[];
   const id = Number(rows[0].id);
-  for (const l of input.lines) {
-    await db()`
-      INSERT INTO purchase_order_lines (po_id, slug, name, qty, unit_price_egp)
-      VALUES (${id}, ${l.slug}, ${l.name}, ${Math.round(l.qty)}, ${Math.round(l.unitPriceEgp)})
-    `;
-  }
   if (input.quotationId) await setQuotationStatus(input.quotationId, "converted");
   return (await getPurchaseOrder(id))!;
 }
@@ -143,9 +157,14 @@ function toPO(r: Record<string, unknown>): PurchaseOrder {
 export async function fulfilPurchaseOrder(id: number): Promise<PurchaseOrderDetail | null> {
   const po = await getPurchaseOrder(id);
   if (!po || po.fulfilled) return po;
-  await decrementQuantities(po.lines.map((l) => ({ slug: l.slug, qty: l.qty })));
   const nextStatus: POStatus = po.status === "invoiced" ? "closed" : po.status === "open" ? "fulfilled" : po.status;
-  await db()`UPDATE purchase_orders SET fulfilled = TRUE, status = ${nextStatus}, updated_at = now() WHERE id = ${id}`;
+  // Deduct every line's stock AND flip status in ONE transaction — a crash
+  // can't leave some stock deducted with the PO still marked unfulfilled.
+  const queries = po.lines
+    .filter((l) => l.qty > 0)
+    .map((l) => decrementQuery(l.slug, l.qty));
+  queries.push(db()`UPDATE purchase_orders SET fulfilled = TRUE, status = ${nextStatus}, updated_at = now() WHERE id = ${id}`);
+  await db().transaction(queries);
   return getPurchaseOrder(id);
 }
 

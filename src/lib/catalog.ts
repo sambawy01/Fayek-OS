@@ -204,47 +204,40 @@ export async function saveCatalog(products: Product[]): Promise<void> {
 }
 
 /**
- * Decrement tracked stock after a successful order/fulfilment. Each item is an
- * ATOMIC, row-locked single-statement UPDATE — concurrent callers serialise and
- * never lose an update. Quantities floor at 0 (auto sold-out). Untracked
- * products (quantity NULL) and unknown slugs are skipped.
+ * Query builders for a single tracked-stock delta — a row-locked single-
+ * statement UPDATE the DB serialises (no lost updates). Exposed so callers can
+ * bundle stock changes with other writes in ONE transaction (e.g. PO
+ * fulfilment deducts stock AND flips status atomically).
  */
-export async function decrementQuantities(
-  items: { slug: string; qty: number }[]
-): Promise<void> {
-  for (const { slug, qty } of items) {
-    if (!(qty > 0)) continue;
-    await db()`
-      UPDATE products SET quantity = GREATEST(0, quantity - ${Math.round(qty)}), updated_at = now()
-      WHERE slug = ${slug} AND quantity IS NOT NULL
-    `;
-  }
+export function decrementQuery(slug: string, qty: number) {
+  return db()`
+    UPDATE products SET quantity = GREATEST(0, quantity - ${Math.round(qty)}), updated_at = now()
+    WHERE slug = ${slug} AND quantity IS NOT NULL
+  `;
+}
+export function addQuery(slug: string, qty: number) {
+  return db()`
+    UPDATE products SET quantity = quantity + ${Math.round(qty)}, updated_at = now()
+    WHERE slug = ${slug} AND quantity IS NOT NULL
+  `;
 }
 
-/** Add received stock to tracked products (atomic per-item UPDATE). */
-export async function addQuantities(
-  items: { slug: string; qty: number }[]
-): Promise<void> {
-  for (const { slug, qty } of items) {
-    if (!(qty > 0)) continue;
-    await db()`
-      UPDATE products SET quantity = quantity + ${Math.round(qty)}, updated_at = now()
-      WHERE slug = ${slug} AND quantity IS NOT NULL
-    `;
-  }
+/** Decrement stock for several items in ONE transaction (all-or-nothing). */
+export async function decrementQuantities(items: { slug: string; qty: number }[]): Promise<void> {
+  const qs = items.filter((i) => i.qty > 0).map((i) => decrementQuery(i.slug, i.qty));
+  if (qs.length) await db().transaction(qs);
 }
 
-/** Restore tracked stock when an order is cancelled (atomic per-item UPDATE). */
-export async function restoreQuantities(
-  items: { slug: string; qty: number }[]
-): Promise<void> {
-  for (const { slug, qty } of items) {
-    if (!(qty > 0)) continue;
-    await db()`
-      UPDATE products SET quantity = quantity + ${Math.round(qty)}, updated_at = now()
-      WHERE slug = ${slug} AND quantity IS NOT NULL
-    `;
-  }
+/** Add received stock for several items in ONE transaction. */
+export async function addQuantities(items: { slug: string; qty: number }[]): Promise<void> {
+  const qs = items.filter((i) => i.qty > 0).map((i) => addQuery(i.slug, i.qty));
+  if (qs.length) await db().transaction(qs);
+}
+
+/** Restore stock (order cancelled) for several items in ONE transaction. */
+export async function restoreQuantities(items: { slug: string; qty: number }[]): Promise<void> {
+  const qs = items.filter((i) => i.qty > 0).map((i) => addQuery(i.slug, i.qty));
+  if (qs.length) await db().transaction(qs);
 }
 
 // --- Slugs -----------------------------------------------------------------------
