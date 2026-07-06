@@ -37,6 +37,12 @@ export interface Product {
   soldOut: boolean;
   /** Hidden products stay in the catalog but never reach the public API. */
   active: boolean;
+  /** Reorder point: auto-raise production when tracked stock falls to/below this. */
+  reorderPoint: number;
+  /** How many units to produce when reordering. */
+  reorderQty: number;
+  /** Replenished externally (bought, not produced) — excluded from shortfall production. */
+  frequentSupply: boolean;
   /**
    * Manufacturer usage/application directions (optional, editable in /admin).
    * Surfaced to the AI concierge and the public API so clients can be told
@@ -85,6 +91,9 @@ export const SEED: readonly Product[] = SHOP_PRODUCTS.map((p) => ({
   quantity: p.quantity,
   soldOut: false,
   active: true,
+  reorderPoint: 10,
+  reorderQty: 10,
+  frequentSupply: false,
   createdAt: SEED_TIMESTAMP,
   updatedAt: SEED_TIMESTAMP,
 }));
@@ -129,6 +138,7 @@ interface ProductRow {
   name_ar: string; sub_ar: string; desc_ar: string; price_egp: number;
   photo: string; alt_en: string; alt_ar: string; quantity: number | null;
   sold_out: boolean; active: boolean; usage_en: string; usage_ar: string;
+  reorder_point?: number; reorder_qty?: number; frequent_supply?: boolean;
   created_at: unknown; updated_at: unknown;
 }
 
@@ -144,6 +154,9 @@ function rowToProduct(r: ProductRow): Product {
     quantity: r.quantity === null ? null : Number(r.quantity),
     soldOut: Boolean(r.sold_out),
     active: Boolean(r.active),
+    reorderPoint: r.reorder_point === undefined || r.reorder_point === null ? 10 : Number(r.reorder_point),
+    reorderQty: r.reorder_qty === undefined || r.reorder_qty === null ? 10 : Number(r.reorder_qty),
+    frequentSupply: Boolean(r.frequent_supply),
     ...(usageEn || usageAr ? { usage: { en: usageEn, ar: usageAr } } : {}),
     createdAt: isoString(r.created_at),
     updatedAt: isoString(r.updated_at),

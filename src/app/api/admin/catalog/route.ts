@@ -91,6 +91,9 @@ export async function POST(request: NextRequest) {
       quantity: input.quantity !== undefined ? input.quantity : null,
       soldOut: input.soldOut ?? false,
       active: input.active ?? true,
+      reorderPoint: 10,
+      reorderQty: 10,
+      frequentSupply: false,
       createdAt: now,
       updatedAt: now,
     };

@@ -477,6 +477,31 @@ function ProductRow({
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Reorder settings (per-item production planning).
+  const [rp, setRp] = useState(String(product.reorderPoint ?? 10));
+  const [rq, setRq] = useState(String(product.reorderQty ?? 10));
+  const [fs, setFs] = useState(Boolean(product.frequentSupply));
+  const [reorderBusy, setReorderBusy] = useState(false);
+  const [reorderSaved, setReorderSaved] = useState(false);
+
+  async function saveReorder() {
+    setReorderBusy(true); setError(null);
+    try {
+      const res = await fetch(`/api/admin/catalog/${encodeURIComponent(product.slug)}/reorder`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", ...authHeaders(adminKey) },
+        body: JSON.stringify({ reorderPoint: Number(rp), reorderQty: Number(rq), frequentSupply: fs }),
+      });
+      if (!res.ok) {
+        const d = (await res.json().catch(() => ({}))) as { error?: string };
+        setError(d.error ?? "Couldn't save reorder settings."); return;
+      }
+      const d = (await res.json()) as { reorderPoint: number; reorderQty: number; frequentSupply: boolean };
+      onUpdated({ ...product, reorderPoint: d.reorderPoint, reorderQty: d.reorderQty, frequentSupply: d.frequentSupply });
+      setReorderSaved(true); setTimeout(() => setReorderSaved(false), 1500);
+    } catch { setError("Network error — please try again."); }
+    finally { setReorderBusy(false); }
+  }
 
   async function patch(body: Record<string, unknown>) {
     setBusy(true);
@@ -582,6 +607,19 @@ function ProductRow({
               </span>
             )}
           </div>
+          {canEditStock && product.quantity !== null && (
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-[#5B7186]">
+              <span className="uppercase tracking-[0.05em]">Reorder</span>
+              <span>when ≤</span>
+              <input className="w-16 rounded-lg border border-[#0E2A47]/15 bg-white px-2 py-1 text-sm" inputMode="numeric" value={rp} onChange={(e) => setRp(e.target.value)} />
+              <span>produce</span>
+              <input className="w-16 rounded-lg border border-[#0E2A47]/15 bg-white px-2 py-1 text-sm" inputMode="numeric" value={rq} onChange={(e) => setRq(e.target.value)} />
+              <label className="flex items-center gap-1"><input type="checkbox" checked={fs} onChange={(e) => setFs(e.target.checked)} /> frequent supply (buy, don&rsquo;t produce)</label>
+              <button className="rounded-full border border-[#0E2A47]/15 bg-[#F4F8FD] px-3 py-1 text-[#0E2A47] transition hover:bg-[#E4EEFA] disabled:opacity-50" disabled={reorderBusy} onClick={() => void saveReorder()}>
+                {reorderBusy ? "Saving…" : reorderSaved ? "Saved ✓" : "Save"}
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
