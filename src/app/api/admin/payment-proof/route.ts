@@ -1,25 +1,21 @@
 import { NextResponse } from "next/server";
-import { put } from "@vercel/blob";
+import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { requireCapability } from "@/lib/auth/session-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const ALLOWED: Record<string, string> = {
-  "image/jpeg": "jpg",
-  "image/png": "png",
-  "image/webp": "webp",
-  "application/pdf": "pdf",
-};
+const ALLOWED = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
 const MAX_BYTES = 8 * 1024 * 1024;
 
-function safeName(name: string): string {
-  return (name || "proof").replace(/\.[^.]+$/, "").replace(/[^a-zA-Z0-9_-]+/g, "-").slice(0, 40) || "proof";
-}
-
 /**
- * POST /api/admin/payment-proof — upload a proof of payment (bank-transfer
- * receipt or cheque, image or PDF) to Blob under `proofs/`. Returns { url }.
+ * POST /api/admin/payment-proof — issues a short-lived client token so the
+ * browser uploads the proof (bank-transfer receipt or cheque, image or PDF)
+ * DIRECTLY to Blob under `proofs/`. This bypasses the ~4.5 MB serverless
+ * request-body limit that a multipart upload through this route hit — full-page
+ * screenshots routinely exceed it, which silently failed the upload. The file
+ * bytes never pass through this function; only the token handshake does.
+ *
  * Finance-scoped (owner/admin).
  */
 export async function POST(request: Request) {
@@ -31,33 +27,30 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Uploads are not configured (no Blob token)." }, { status: 503 });
   }
 
-  let form: FormData;
+  let body: HandleUploadBody;
   try {
-    form = await request.formData();
+    body = (await request.json()) as HandleUploadBody;
   } catch {
-    return NextResponse.json({ error: "Expected a multipart form with a `file` field." }, { status: 400 });
-  }
-  const file = form.get("file");
-  if (!(file instanceof File)) {
-    return NextResponse.json({ error: "Missing `file`." }, { status: 400 });
-  }
-  const ext = ALLOWED[file.type];
-  if (!ext) {
-    return NextResponse.json({ error: "Proof must be a JPEG, PNG, WebP or PDF." }, { status: 400 });
-  }
-  if (file.size === 0 || file.size > MAX_BYTES) {
-    return NextResponse.json({ error: "File must be between 1 byte and 8 MB." }, { status: 400 });
+    return NextResponse.json({ error: "Invalid request." }, { status: 400 });
   }
 
   try {
-    const blob = await put(`proofs/${safeName(file.name)}-${file.size}.${ext}`, file, {
-      access: "public",
-      contentType: file.type,
-      addRandomSuffix: true,
+    const json = await handleUpload({
+      body,
+      request,
       token,
+      onBeforeGenerateToken: async () => ({
+        allowedContentTypes: ALLOWED,
+        maximumSizeInBytes: MAX_BYTES,
+        addRandomSuffix: true,
+      }),
+      // The client receives the blob URL directly from upload(); this webhook is
+      // best-effort (and isn't reachable on localhost), so we no-op.
+      onUploadCompleted: async () => {},
     });
-    return NextResponse.json({ url: blob.url, pathname: blob.pathname }, { status: 201 });
-  } catch {
-    return NextResponse.json({ error: "Upload failed. Please try again." }, { status: 502 });
+    return NextResponse.json(json);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Upload failed.";
+    return NextResponse.json({ error: msg }, { status: 400 });
   }
 }

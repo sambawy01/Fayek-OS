@@ -1,8 +1,25 @@
 "use client";
 
 import { useState } from "react";
+import { upload } from "@vercel/blob/client";
 
-/** Bank-transfer / cheque proof upload (image or PDF) → Blob, returns the URL. */
+const EXT: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "application/pdf": "pdf",
+};
+
+function safeName(name: string): string {
+  return (name || "proof").replace(/\.[^.]+$/, "").replace(/[^a-zA-Z0-9_-]+/g, "-").slice(0, 40) || "proof";
+}
+
+/**
+ * Bank-transfer / cheque proof upload (image or PDF). Uploads the file DIRECTLY
+ * from the browser to Vercel Blob (via a token minted by /api/admin/payment-proof)
+ * so large screenshots aren't rejected by the serverless request-body limit.
+ * Returns the public Blob URL.
+ */
 export function ProofField({
   value, onUploaded, onError, onUploadingChange, label = "Proof of payment",
 }: {
@@ -17,21 +34,17 @@ export function ProofField({
   const setBusy = (b: boolean) => { setUploading(b); onUploadingChange?.(b); };
 
   async function handle(file: File) {
-    if (!/^(image\/(jpeg|png|webp)|application\/pdf)$/.test(file.type)) {
-      return onError("Proof must be a JPEG, PNG, WebP or PDF.");
-    }
+    const ext = EXT[file.type];
+    if (!ext) return onError("Proof must be a JPEG, PNG, WebP or PDF.");
     if (file.size > 8 * 1024 * 1024) return onError("Proof must be at most 8 MB.");
     setBusy(true);
     try {
-      const data = new FormData();
-      data.append("file", file);
-      const res = await fetch("/api/admin/payment-proof", { method: "POST", body: data });
-      if (!res.ok) {
-        const d = (await res.json().catch(() => ({}))) as { error?: string };
-        return onError(d.error ?? "Upload failed.");
-      }
-      const { url } = (await res.json()) as { url: string };
-      onUploaded(url);
+      const blob = await upload(`proofs/${safeName(file.name)}.${ext}`, file, {
+        access: "public",
+        contentType: file.type,
+        handleUploadUrl: "/api/admin/payment-proof",
+      });
+      onUploaded(blob.url);
     } catch {
       onError("Upload failed — please try again.");
     } finally {
