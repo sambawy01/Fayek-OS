@@ -168,6 +168,7 @@ function BatchRow({
 }) {
   const [detail, setDetail] = useState<BatchDetail | null>(null);
   const [recv, setRecv] = useState<Record<number, string>>({});
+  const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [outcome, setOutcome] = useState<string | null>(null);
@@ -194,6 +195,7 @@ function BatchRow({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           lines: detail.lines.map((l) => ({ lineId: l.id, receivedQty: Number(recv[l.id] ?? "0") })),
+          notes,
         }),
       });
       const data = (await res.json().catch(() => ({}))) as { batch?: BatchDetail; outcome?: string; error?: string };
@@ -271,9 +273,23 @@ function BatchRow({
                 Enter the actual received quantity per line. Any figure that differs from expected
                 <span className="font-medium text-[#8A5A12]"> escalates to Owner/Admin</span> for approval before stock is added.
               </p>
+              <label className="mb-1 block text-[11px] font-medium uppercase tracking-[0.06em] text-[#5B7186]">Receipt comments (damage, shortages, condition…)</label>
+              <textarea
+                className={`${inputCls} mb-2`}
+                rows={2}
+                placeholder="e.g. 3 cartons water-damaged; 2 units cracked — noted for the record"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+              />
               <button className={primaryBtn} disabled={busy} onClick={() => void receive()}>
                 {busy ? "Receiving…" : "Receive & confirm"}
               </button>
+            </div>
+          )}
+          {detail.receiptNotes && (
+            <div className="mt-3 rounded-xl border border-[#0E2A47]/10 bg-[#F4F8FD] px-3 py-2">
+              <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-[#5B7186]">Receipt comments</p>
+              <p className="mt-0.5 text-sm text-[#0E2A47]">{detail.receiptNotes}</p>
             </div>
           )}
           {batch.status === "dispatched" && !canReceive && (

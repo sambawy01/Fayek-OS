@@ -4,7 +4,7 @@ import { useState } from "react";
 import type { Approval } from "@/lib/approvals";
 
 interface DiscLine { name: string; expectedQty: number; receivedQty: number; diff: number }
-interface DiscDetail { reference?: string; supplier?: string; lines?: DiscLine[] }
+interface DiscDetail { reference?: string; supplier?: string; receiptNotes?: string; lines?: DiscLine[] }
 
 const primaryBtn =
   "rounded-full bg-[#1668C7] px-4 py-2 text-sm font-medium text-[#F4F8FD] transition hover:opacity-90 disabled:opacity-50";
@@ -141,6 +141,13 @@ function ApprovalCard({
             ))}
           </tbody>
         </table>
+      )}
+
+      {detail.receiptNotes && (
+        <div className="mt-3 rounded-xl border border-[#8A5A12]/25 bg-[#FBF3E2] px-3 py-2">
+          <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-[#8A5A12]">Receipt comments</p>
+          <p className="mt-0.5 text-sm text-[#0E2A47]">{detail.receiptNotes}</p>
+        </div>
       )}
 
       {!isStock && (

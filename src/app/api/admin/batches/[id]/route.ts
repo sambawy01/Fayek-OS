@@ -44,12 +44,13 @@ export async function POST(
     );
   }
 
-  let body: { lines?: unknown };
+  let body: { lines?: unknown; notes?: unknown };
   try {
-    body = (await request.json()) as { lines?: unknown };
+    body = (await request.json()) as { lines?: unknown; notes?: unknown };
   } catch {
     return NextResponse.json({ error: "Invalid request." }, { status: 400 });
   }
+  const receiptNotes = typeof body.notes === "string" ? body.notes.trim().slice(0, 1000) : "";
   const rawLines = Array.isArray(body.lines) ? body.lines : [];
   const byLineId = new Map(batch.lines.map((l) => [l.id, l]));
   const received: { lineId: number; receivedQty: number }[] = [];
@@ -81,7 +82,7 @@ export async function POST(
   const hasDiscrepancy = diffs.some((d) => d.diff !== 0);
 
   if (!hasDiscrepancy) {
-    const updated = await recordReceipt(id, guard.user.uid, received, "received");
+    const updated = await recordReceipt(id, guard.user.uid, received, "received", receiptNotes);
     await addQuantities(
       batch.lines.map((l) => ({ slug: l.slug, qty: recByLine.get(l.id) ?? 0 }))
     );
@@ -89,10 +90,11 @@ export async function POST(
   }
 
   // Discrepancy → hold stock, raise an escalation.
-  const updated = await recordReceipt(id, guard.user.uid, received, "pending_approval");
+  const updated = await recordReceipt(id, guard.user.uid, received, "pending_approval", receiptNotes);
   const detail = {
     reference: batch.reference,
     supplier: batch.supplier,
+    receiptNotes,
     lines: diffs.map((d) => ({
       name: d.line.name,
       expectedQty: d.line.expectedQty,

@@ -21,6 +21,8 @@ export interface Batch {
   supplier: string;
   status: BatchStatus;
   notes: string;
+  /** Warehouse receipt comments (condition, damage, shortages). */
+  receiptNotes: string;
   createdBy: number | null;
   receivedBy: number | null;
   dispatchedAt: string;
@@ -34,6 +36,7 @@ export interface BatchDetail extends Batch {
 
 interface BatchRow {
   id: number; reference: string; supplier: string; status: string; notes: string;
+  receipt_notes?: string;
   created_by: number | null; received_by: number | null; dispatched_at: string;
   received_at: string | null; created_at: string;
 }
@@ -44,7 +47,7 @@ interface LineRow {
 function toBatch(r: BatchRow): Batch {
   return {
     id: Number(r.id), reference: r.reference, supplier: r.supplier,
-    status: r.status as BatchStatus, notes: r.notes,
+    status: r.status as BatchStatus, notes: r.notes, receiptNotes: r.receipt_notes ?? "",
     createdBy: r.created_by === null ? null : Number(r.created_by),
     receivedBy: r.received_by === null ? null : Number(r.received_by),
     dispatchedAt: r.dispatched_at, receivedAt: r.received_at, createdAt: r.created_at,
@@ -107,7 +110,8 @@ export async function recordReceipt(
   batchId: number,
   receivedBy: number | null,
   received: { lineId: number; receivedQty: number }[],
-  status: BatchStatus
+  status: BatchStatus,
+  receiptNotes = ""
 ): Promise<BatchDetail | null> {
   for (const r of received) {
     await db()`
@@ -117,7 +121,7 @@ export async function recordReceipt(
   }
   await db()`
     UPDATE batches
-       SET status = ${status}, received_by = ${receivedBy},
+       SET status = ${status}, received_by = ${receivedBy}, receipt_notes = ${receiptNotes},
            received_at = now(), updated_at = now()
      WHERE id = ${batchId}
   `;
