@@ -5,6 +5,7 @@ import {
   getPurchaseOrder,
   fulfilPurchaseOrder,
   invoicePurchaseOrder,
+  requestDispatch,
 } from "@/lib/sales";
 
 export const runtime = "nodejs";
@@ -35,12 +36,6 @@ export async function POST(
 ) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
-  if (!can(session.role, "sales.po.process")) {
-    return NextResponse.json(
-      { error: "Only Owner/Admin can process purchase orders." },
-      { status: 403 }
-    );
-  }
   const id = Number((await params).id);
   let body: Record<string, unknown>;
   try {
@@ -49,8 +44,23 @@ export async function POST(
     return NextResponse.json({ error: "Invalid request." }, { status: 400 });
   }
 
+  // "fulfil" = the warehouse CONFIRMS the client dispatch (deducts stock).
   if (body.action === "fulfil") {
+    if (!can(session.role, "sales.po.dispatch")) {
+      return NextResponse.json({ error: "Only the warehouse (Inventory) can confirm a client dispatch." }, { status: 403 });
+    }
     const po = await fulfilPurchaseOrder(id);
+    if (!po) return NextResponse.json({ error: "Not found." }, { status: 404 });
+    return NextResponse.json({ purchaseOrder: po });
+  }
+
+  // Everything else (invoice, request-dispatch) is Owner/Admin (Finance).
+  if (!can(session.role, "sales.po.process")) {
+    return NextResponse.json({ error: "Only Owner/Admin can process purchase orders." }, { status: 403 });
+  }
+
+  if (body.action === "request-dispatch") {
+    const po = await requestDispatch(id);
     if (!po) return NextResponse.json({ error: "Not found." }, { status: 404 });
     return NextResponse.json({ purchaseOrder: po });
   }

@@ -19,9 +19,14 @@ import {
 import {
   listQuotations,
   listPurchaseOrders,
+  listProcessablePurchaseOrders,
+  listDispatchQueue,
+  getPurchaseOrder,
   type Quotation,
   type PurchaseOrder,
+  type PurchaseOrderDetail,
 } from "@/lib/sales";
+import ClientDispatchSection from "./client-dispatch-section";
 import AdminTabs, { type AdminTab } from "./admin-tabs";
 import SignOut from "./sign-out";
 import OrderBookSection from "./order-book-section";
@@ -113,7 +118,7 @@ export default async function AdminPage() {
     let openPOs: PurchaseOrder[] = [];
     try {
       receivables = await listReceivables(false);
-      openPOs = await listPurchaseOrders(true);
+      openPOs = await listProcessablePurchaseOrders();
     } catch (e) {
       console.error("receivables/PO load:", e);
     }
@@ -255,6 +260,24 @@ export default async function AdminPage() {
         ),
       });
     }
+  }
+
+  // --- Client Dispatch (POs Finance released for warehouse dispatch) ----------
+  if (TAB_ACCESS.clientDispatch.includes(role)) {
+    let queue: PurchaseOrderDetail[] = [];
+    try {
+      const basic = await listDispatchQueue();
+      queue = (await Promise.all(basic.map((p) => getPurchaseOrder(p.id)))).filter(
+        (p): p is PurchaseOrderDetail => p !== null
+      );
+    } catch (e) {
+      console.error("dispatch queue load:", e);
+    }
+    tabs.push({
+      id: "clientDispatch",
+      label: queue.length > 0 ? `Client Dispatch (${queue.length})` : "Client Dispatch",
+      node: <ClientDispatchSection initial={queue} canConfirm={can(role, "sales.po.dispatch")} />,
+    });
   }
 
   // --- Reports (role-appropriate + AI analysis) -------------------------------

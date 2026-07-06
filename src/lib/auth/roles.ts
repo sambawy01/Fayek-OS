@@ -49,7 +49,8 @@ export const PERMISSIONS = {
   // Sales: quotations + purchase orders + outreach
   "sales.quote": ["owner", "admin", "sales"],
   "sales.po.create": ["owner", "admin", "sales"],
-  "sales.po.process": ["owner", "admin"], // invoice / fulfil open POs
+  "sales.po.process": ["owner", "admin"], // invoice + send-to-inventory-for-dispatch
+  "sales.po.dispatch": ["owner", "inventory"], // confirm the client dispatch (deducts stock)
   "outreach.use": ["owner", "admin", "sales"],
   // Prospecting: AI-discovered leads + approval
   "leads.manage": ["owner", "admin", "sales"], // view / approve / reject
@@ -82,6 +83,7 @@ export const TAB_ACCESS: Record<string, Role[]> = {
   quotations: ["owner", "admin", "sales"], // quotations + outreach
   prospecting: ["owner", "admin", "sales"], // AI-discovered leads + approval
   inventory: ["owner", "admin", "inventory", "sales"], // sales sees read-only
+  clientDispatch: ["owner", "admin", "inventory"], // POs Finance sent for warehouse dispatch to client
   finance: ["owner", "admin"],
   // Customers (companies): sales gets the directory view; owner/admin get the
   // full account (notes, payment terms, edit).

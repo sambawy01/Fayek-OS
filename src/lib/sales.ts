@@ -35,6 +35,8 @@ export interface PurchaseOrder {
   totalEgp: number;
   notes: string;
   fulfilled: boolean;
+  /** Finance has sent this PO to the warehouse for dispatch to the client. */
+  dispatchRequested: boolean;
   receivableId: number | null;
   createdAt: string;
 }
@@ -136,6 +138,16 @@ export async function listPurchaseOrders(openOnly = false): Promise<PurchaseOrde
     : ((await db()`SELECT * FROM purchase_orders ORDER BY created_at DESC LIMIT 200`) as Record<string, unknown>[]);
   return rows.map(toPO);
 }
+/** POs Finance can still act on: not yet dispatched (fulfilled) and not cancelled. */
+export async function listProcessablePurchaseOrders(): Promise<PurchaseOrder[]> {
+  const rows = (await db()`
+    SELECT * FROM purchase_orders
+    WHERE fulfilled = FALSE AND status <> 'cancelled'
+    ORDER BY created_at DESC LIMIT 200
+  `) as Record<string, unknown>[];
+  return rows.map(toPO);
+}
+
 export async function getPurchaseOrder(id: number): Promise<PurchaseOrderDetail | null> {
   const rows = (await db()`SELECT * FROM purchase_orders WHERE id = ${id}`) as Record<string, unknown>[];
   if (!rows[0]) return null;
@@ -148,9 +160,28 @@ function toPO(r: Record<string, unknown>): PurchaseOrder {
     id: Number(r.id), companyId: r.company_id === null ? null : Number(r.company_id),
     companyName: String(r.company_name), quotationId: r.quotation_id === null ? null : Number(r.quotation_id),
     status: r.status as POStatus, totalEgp: Number(r.total_egp), notes: String(r.notes),
-    fulfilled: Boolean(r.fulfilled), receivableId: r.receivable_id === null ? null : Number(r.receivable_id),
+    fulfilled: Boolean(r.fulfilled), dispatchRequested: Boolean(r.dispatch_requested),
+    receivableId: r.receivable_id === null ? null : Number(r.receivable_id),
     createdAt: isoString(r.created_at),
   };
+}
+
+/** Finance → warehouse handoff: flag a PO ready for dispatch to the client. */
+export async function requestDispatch(id: number): Promise<PurchaseOrderDetail | null> {
+  const po = await getPurchaseOrder(id);
+  if (!po || po.fulfilled) return po;
+  await db()`UPDATE purchase_orders SET dispatch_requested = TRUE, updated_at = now() WHERE id = ${id}`;
+  return getPurchaseOrder(id);
+}
+
+/** POs Finance has sent for dispatch that the warehouse hasn't dispatched yet. */
+export async function listDispatchQueue(): Promise<PurchaseOrder[]> {
+  const rows = (await db()`
+    SELECT * FROM purchase_orders
+    WHERE dispatch_requested = TRUE AND fulfilled = FALSE AND status <> 'cancelled'
+    ORDER BY created_at DESC LIMIT 200
+  `) as Record<string, unknown>[];
+  return rows.map(toPO);
 }
 
 /** Deduct stock for a PO's lines and flag it fulfilled. */

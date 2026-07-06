@@ -50,7 +50,7 @@ function POCard({ po, onProcessed, onError }: { po: PurchaseOrder; onProcessed: 
   const [inv, setInv] = useState({ advanceEgp: "", dueDate: "", advanceMethod: "bank_transfer", advanceProofUrl: "" });
   const [installments, setInstallments] = useState<Inst[]>([]);
   const [busy, setBusy] = useState(false);
-  const [fulfilled, setFulfilled] = useState(po.fulfilled);
+  const [dispatchRequested, setDispatchRequested] = useState(po.dispatchRequested);
   const [invoiced, setInvoiced] = useState(!!po.receivableId);
 
   async function load() {
@@ -67,9 +67,9 @@ function POCard({ po, onProcessed, onError }: { po: PurchaseOrder; onProcessed: 
       return (await res.json()) as { purchaseOrder: PurchaseOrderDetail };
     } finally { setBusy(false); }
   }
-  async function doFulfil() {
-    const r = await act({ action: "fulfil" });
-    if (r) { setFulfilled(true); if (r.purchaseOrder.status === "closed") onProcessed(po.id); }
+  async function doRequestDispatch() {
+    const r = await act({ action: "request-dispatch" });
+    if (r) setDispatchRequested(true);
   }
   async function doInvoice() {
     if (Number(inv.advanceEgp || "0") > 0 && !inv.advanceProofUrl) return onError("Attach a proof of payment for the advance.");
@@ -98,7 +98,10 @@ function POCard({ po, onProcessed, onError }: { po: PurchaseOrder; onProcessed: 
             <p key={i} className="text-sm text-[#0E2A47]">{l.name} · {l.qty} × {egp(l.unitPriceEgp)}</p>
           ))}
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <button className={subtleBtn} disabled={busy || fulfilled} onClick={() => void doFulfil()}>{fulfilled ? "Fulfilled ✓" : "Fulfil (deduct stock)"}</button>
+            <button className={primaryBtn} disabled={busy || dispatchRequested} onClick={() => void doRequestDispatch()}>
+              {dispatchRequested ? "Sent to Inventory ✓" : "Send to Inventory for dispatch"}
+            </button>
+            {dispatchRequested && <span className="text-xs text-[#5B7186]">Warehouse confirms the dispatch &amp; deducts stock.</span>}
           </div>
           {!invoiced ? (
             <div className="mt-3 rounded-xl border border-[#1668C7]/20 bg-[#F4F8FD] px-3 py-2">
