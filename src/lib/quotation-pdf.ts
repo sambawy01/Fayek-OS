@@ -1,89 +1,16 @@
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
-import PDFDocument from "pdfkit";
+import {
+  createBrandedDoc, INK, MUTED, HAIRLINE, ACCENT, PANEL, PAGE_MARGIN,
+  BAND_HEIGHT, BOTTOM_MARGIN, NO_LIGATURES, hasArabic, money, fmtDate, fmtDateISO,
+} from "./pdf-brand";
 
 /**
- * Corporate quotation PDF for Fayek Abrasives.
- *
- * Shares the branded shell of the letterhead document (dark logo band + footer
- * contacts + embedded OFL fonts — PT Sans/Serif for Latin, Amiri for Arabic)
- * but lays out a real commercial quotation: a numbered header block (quote #,
- * issue date, validity), a bill-to panel, an itemised table with right-aligned
- * money columns and a totals summary, then standard terms and a signature line.
- *
- * Kept separate from `letterhead-pdf.ts` so the assistant's generic letter tool
- * stays untouched.
+ * Corporate quotation PDF for Fayek Abrasives — a numbered header block (quote
+ * #, issue date, validity), a bill-to panel, an itemised table with right-
+ * aligned money columns and a totals summary, then standard terms and a
+ * signature line. Uses the shared branded chrome in `pdf-brand.ts`.
  */
 
-const LOGO_URL = "https://www.fayekabrasives.com/assets/images/logo.jpg";
 const BRAND_NAME = "FAYEK ABRASIVES";
-const FOOTER_TEXT = "www.fayekabrasives.com  ·  info@ftc-eg.com  ·  +20 2 2415 6092";
-
-const INK = "#3A332C";
-const MUTED = "#847866";
-const HAIRLINE = "#E5DCCB";
-const ACCENT = "#357F75";
-const PANEL = "#F5F0E6";
-
-const PAGE_MARGIN = 56;
-const BAND_HEIGHT = 110;
-// Content paginates above this; the footer band is drawn independently lower
-// (page height − 64), so this can sit closer to the page edge without collision.
-const BOTTOM_MARGIN = 78;
-
-const NO_LIGATURES = {
-  liga: false, clig: false, dlig: false, hlig: false,
-} as unknown as PDFKit.Mixins.TextOptions["features"];
-
-const ARABIC_RE = /[؀-ۿݐ-ݿࢠ-ࣿﭐ-﷿ﹰ-﻿]/;
-const hasArabic = (t: string) => ARABIC_RE.test(t);
-
-const FONT_DIR = join(process.cwd(), "src", "assets", "fonts");
-const FONT_FILES = {
-  Sans: "PT_Sans-Web-Regular.ttf",
-  "Sans-Bold": "PT_Sans-Web-Bold.ttf",
-  Serif: "PT_Serif-Web-Regular.ttf",
-  Arabic: "Amiri-Regular.ttf",
-  "Arabic-Bold": "Amiri-Bold.ttf",
-} as const;
-type FontName = keyof typeof FONT_FILES;
-
-let fontCache: Record<FontName, Buffer> | null = null;
-async function loadFonts(): Promise<Record<FontName, Buffer>> {
-  if (fontCache) return fontCache;
-  const entries = await Promise.all(
-    (Object.keys(FONT_FILES) as FontName[]).map(async (name) =>
-      [name, await readFile(join(FONT_DIR, FONT_FILES[name]))] as const
-    )
-  );
-  fontCache = Object.fromEntries(entries) as Record<FontName, Buffer>;
-  return fontCache;
-}
-
-async function loadLogo(): Promise<Buffer | null> {
-  try {
-    const res = await fetch(LOGO_URL, { signal: AbortSignal.timeout(8_000) });
-    if (res.ok) return Buffer.from(await res.arrayBuffer());
-  } catch { /* fall through */ }
-  try {
-    return await readFile(join(process.cwd(), "public", "logo.png"));
-  } catch {
-    return null;
-  }
-}
-
-const money = (n: number) =>
-  Math.round(n).toLocaleString("en-EG", { maximumFractionDigits: 0 });
-
-function fmtDate(d: Date): string {
-  return new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Africa/Cairo", day: "numeric", month: "long", year: "numeric",
-  }).format(d);
-}
-function fmtDateISO(iso: string): string {
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? iso : fmtDate(d);
-}
 
 export interface QuotationLine {
   name: string;
@@ -102,55 +29,11 @@ export interface QuotationPdfInput {
 }
 
 export async function renderQuotationPdf(input: QuotationPdfInput): Promise<Buffer> {
-  const [logo, fonts] = await Promise.all([loadLogo(), loadFonts()]);
   const now = input.now ?? new Date();
   const quoteNo = `Q-${String(input.quotationId).padStart(4, "0")}`;
-
-  const doc = new PDFDocument({
-    size: "A4",
-    margins: { top: BAND_HEIGHT + 44, bottom: BOTTOM_MARGIN, left: PAGE_MARGIN, right: PAGE_MARGIN },
-    font: null as unknown as string,
-    info: { Title: `Quotation ${quoteNo}`, Author: "Fayek Abrasives" },
+  const { doc, done, pageWidth, x0, contentWidth, contentRight } = await createBrandedDoc({
+    title: `Quotation ${quoteNo}`,
   });
-  doc.registerFont("Sans", fonts.Sans);
-  doc.registerFont("Sans-Bold", fonts["Sans-Bold"]);
-  doc.registerFont("Serif", fonts.Serif);
-  doc.registerFont("Arabic", fonts.Arabic);
-  doc.registerFont("Arabic-Bold", fonts["Arabic-Bold"]);
-
-  const chunks: Buffer[] = [];
-  doc.on("data", (c: Buffer) => chunks.push(c));
-  const done = new Promise<Buffer>((resolve) => doc.on("end", () => resolve(Buffer.concat(chunks))));
-
-  const pageWidth = doc.page.width;
-  const x0 = PAGE_MARGIN;
-  const contentWidth = pageWidth - PAGE_MARGIN * 2;
-  const contentRight = x0 + contentWidth;
-
-  const drawBandAndFooter = () => {
-    const savedX = doc.x, savedY = doc.y, savedBottom = doc.page.margins.bottom;
-    doc.page.margins.bottom = 0;
-    doc.save();
-    // White header with the real brand logo and a green accent rule beneath it.
-    if (logo) {
-      const box = 84;
-      doc.image(logo, (pageWidth - box) / 2, (BAND_HEIGHT - box) / 2, { fit: [box, box], align: "center", valign: "center" });
-    } else {
-      doc.font("Sans-Bold").fontSize(16).fillColor(INK)
-        .text(BRAND_NAME, PAGE_MARGIN, BAND_HEIGHT / 2 - 9, { width: contentWidth, align: "center", characterSpacing: 2.5, features: NO_LIGATURES });
-    }
-    doc.moveTo(PAGE_MARGIN, BAND_HEIGHT - 2).lineTo(pageWidth - PAGE_MARGIN, BAND_HEIGHT - 2)
-      .lineWidth(2).strokeColor(ACCENT).stroke();
-    const footerY = doc.page.height - 64;
-    doc.moveTo(PAGE_MARGIN, footerY).lineTo(pageWidth - PAGE_MARGIN, footerY).lineWidth(0.5).strokeColor(HAIRLINE).stroke();
-    doc.font("Sans").fontSize(9).fillColor(MUTED)
-      .text(FOOTER_TEXT, PAGE_MARGIN, footerY + 12, { width: contentWidth, align: "center", characterSpacing: 0.5, features: NO_LIGATURES });
-    doc.restore();
-    doc.page.margins.bottom = savedBottom;
-    doc.x = savedX; doc.y = savedY;
-  };
-  drawBandAndFooter();
-  doc.on("pageAdded", drawBandAndFooter);
 
   // --- Title + meta -----------------------------------------------------------
   let y = BAND_HEIGHT + 40;

@@ -630,6 +630,8 @@ export default function ProductsSection({
   const [products, setProducts] = useState<Product[]>(initialProducts);
   const [editingSlug, setEditingSlug] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const [reportFilter, setReportFilter] = useState<"all" | "tracked" | "low" | "out">("all");
+  const [query, setQuery] = useState("");
 
   function handleUpdated(updated: Product) {
     setProducts((list) =>
@@ -651,6 +653,16 @@ export default function ProductsSection({
     ? products.find((p) => p.slug === editingSlug) ?? null
     : null;
 
+  const q = query.trim().toLowerCase();
+  const shown = q
+    ? products.filter(
+        (p) =>
+          p.slug.toLowerCase().includes(q) ||
+          p.en.name.toLowerCase().includes(q) ||
+          (p.ar?.name || "").toLowerCase().includes(q)
+      )
+    : products;
+
   return (
     <section>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
@@ -658,7 +670,7 @@ export default function ProductsSection({
           Products Inventory
           {products.length > 0 && (
             <span className="ml-2 align-middle font-sans text-sm text-[#357F75]">
-              {products.length}
+              {q && shown.length !== products.length ? `${shown.length} / ${products.length}` : products.length}
             </span>
           )}
         </h2>
@@ -668,6 +680,46 @@ export default function ProductsSection({
           </button>
         )}
       </div>
+
+      <div className="mb-5 rounded-2xl border border-[#38492E]/10 bg-[#FBF4E6] px-4 py-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm font-medium text-[#38492E]">Generate inventory list</span>
+          <select
+            className="rounded-full border border-[#38492E]/15 bg-white px-3 py-1.5 text-sm text-[#38492E] outline-none focus:border-[#357F75]"
+            value={reportFilter}
+            onChange={(e) => setReportFilter(e.target.value as typeof reportFilter)}
+          >
+            <option value="all">All products</option>
+            <option value="tracked">Tracked stock only</option>
+            <option value="low">Low stock (≤10)</option>
+            <option value="out">Out of stock</option>
+          </select>
+          <a className={primaryBtn} href={`/api/admin/catalog/report?format=pdf&filter=${reportFilter}`} target="_blank" rel="noreferrer">PDF</a>
+          <a className={subtleBtn} href={`/api/admin/catalog/report?format=csv&filter=${reportFilter}`}>CSV</a>
+          <span className="text-xs text-[#5E6B4F]">Point-in-time snapshot for audits &amp; record-keeping.</span>
+        </div>
+      </div>
+
+      {!loadError && products.length > 0 && (
+        <div className="relative mb-4">
+          <input
+            className={inputCls}
+            placeholder="Search products by name or code…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          {query && (
+            <button
+              type="button"
+              onClick={() => setQuery("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-[#5E6B4F] hover:text-[#38492E]"
+              aria-label="Clear search"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+      )}
 
       {loadError ? (
         <div className="rounded-2xl border border-[#B5483A]/30 bg-[#FBF4E6] px-6 py-5 text-sm text-[#B5483A]">
@@ -696,8 +748,12 @@ export default function ProductsSection({
             <div className="rounded-2xl border border-dashed border-[#38492E]/15 bg-[#FBF4E6]/60 px-6 py-8 text-center text-sm text-[#5E6B4F]">
               No products yet{canManage ? " — add the first one." : "."}
             </div>
+          ) : shown.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-[#38492E]/15 bg-[#FBF4E6]/60 px-6 py-8 text-center text-sm text-[#5E6B4F]">
+              No products match “{query}”.
+            </div>
           ) : (
-            products.map((product) => (
+            shown.map((product) => (
               <ProductRow
                 key={product.slug}
                 product={product}
