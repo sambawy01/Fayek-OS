@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { PurchaseOrder, PurchaseOrderDetail } from "@/lib/sales";
 import InstallmentBuilder, { type Inst } from "./installment-builder";
+import { ProofField } from "./proof-upload";
 
 const primaryBtn =
   "rounded-full bg-[#1668C7] px-4 py-2 text-sm font-medium text-[#F4F8FD] transition hover:opacity-90 disabled:opacity-50";
@@ -46,7 +47,7 @@ export default function OpenPOsSection({ initialOpen }: { initialOpen: PurchaseO
 function POCard({ po, onProcessed, onError }: { po: PurchaseOrder; onProcessed: (id: number) => void; onError: (m: string) => void }) {
   const [open, setOpen] = useState(false);
   const [detail, setDetail] = useState<PurchaseOrderDetail | null>(null);
-  const [inv, setInv] = useState({ advanceEgp: "", dueDate: "" });
+  const [inv, setInv] = useState({ advanceEgp: "", dueDate: "", advanceMethod: "bank_transfer", advanceProofUrl: "" });
   const [installments, setInstallments] = useState<Inst[]>([]);
   const [busy, setBusy] = useState(false);
   const [fulfilled, setFulfilled] = useState(po.fulfilled);
@@ -71,9 +72,12 @@ function POCard({ po, onProcessed, onError }: { po: PurchaseOrder; onProcessed: 
     if (r) { setFulfilled(true); if (r.purchaseOrder.status === "closed") onProcessed(po.id); }
   }
   async function doInvoice() {
+    if (Number(inv.advanceEgp || "0") > 0 && !inv.advanceProofUrl) return onError("Attach a proof of payment for the advance.");
     const r = await act({
       action: "invoice",
       advanceEgp: Number(inv.advanceEgp || "0"),
+      advanceMethod: inv.advanceMethod,
+      advanceProofUrl: inv.advanceProofUrl,
       dueDate: inv.dueDate || null,
       installments: installments
         .map((i) => ({ amountEgp: Number(i.amount || "0"), dueDate: i.due || null }))
@@ -101,9 +105,17 @@ function POCard({ po, onProcessed, onError }: { po: PurchaseOrder; onProcessed: 
               <p className="mb-2 text-xs uppercase tracking-[0.06em] text-[#5B7186]">Invoice → receivable</p>
               <div className="flex flex-wrap items-center gap-2">
                 <input className="w-28 rounded-xl border border-[#0E2A47]/15 bg-white px-2 py-1.5 text-sm" inputMode="numeric" placeholder="Advance EGP" value={inv.advanceEgp} onChange={(e) => setInv({ ...inv, advanceEgp: e.target.value })} />
+                <select className="rounded-xl border border-[#0E2A47]/15 bg-white px-2 py-1.5 text-sm" value={inv.advanceMethod} onChange={(e) => setInv({ ...inv, advanceMethod: e.target.value })}>
+                  <option value="bank_transfer">Bank transfer</option><option value="cheque">Cheque</option>
+                </select>
                 <input className="rounded-xl border border-[#0E2A47]/15 bg-white px-2 py-1.5 text-sm" type="date" value={inv.dueDate} onChange={(e) => setInv({ ...inv, dueDate: e.target.value })} title="Overall due date" />
                 <button className={primaryBtn} disabled={busy} onClick={() => void doInvoice()}>Invoice</button>
               </div>
+              {Number(inv.advanceEgp || "0") > 0 && (
+                <div className="mt-2 max-w-xs">
+                  <ProofField label="Advance proof" value={inv.advanceProofUrl} onUploaded={(url) => setInv((s) => ({ ...s, advanceProofUrl: url }))} onError={onError} />
+                </div>
+              )}
               <div className="mt-3">
                 <InstallmentBuilder
                   value={installments}

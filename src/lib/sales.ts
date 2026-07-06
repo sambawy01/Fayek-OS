@@ -174,6 +174,7 @@ export async function invoicePurchaseOrder(
   opts: {
     advanceEgp?: number;
     advanceMethod?: string;
+    advanceProofUrl?: string;
     installments?: { amountEgp: number; dueDate?: string | null }[];
     installmentCount?: number;
     dueDate?: string | null;
@@ -187,7 +188,7 @@ export async function invoicePurchaseOrder(
     {
       companyId: po.companyId, companyName: po.companyName, orderRef: `PO-${po.id}`,
       totalEgp: po.totalEgp, dueDate: opts.dueDate ?? null, notes: `From purchase order #${po.id}`,
-      advance: opts.advanceEgp && opts.advanceEgp > 0 ? { amountEgp: opts.advanceEgp, method: opts.advanceMethod ?? "cash" } : undefined,
+      advance: opts.advanceEgp && opts.advanceEgp > 0 ? { amountEgp: opts.advanceEgp, method: opts.advanceMethod ?? "bank_transfer", proofUrl: opts.advanceProofUrl ?? "" } : undefined,
       installments: opts.installments,
       installmentCount: opts.installmentCount, firstDueDate: opts.firstDueDate ?? null,
     },

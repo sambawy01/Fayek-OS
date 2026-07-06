@@ -41,6 +41,10 @@ export async function POST(request: Request) {
   if (advanceAmount > total) {
     return NextResponse.json({ error: "Advance can't exceed the total." }, { status: 400 });
   }
+  const advanceProof = str(body.advanceProofUrl);
+  if (advanceAmount > 0 && !advanceProof) {
+    return NextResponse.json({ error: "Attach a proof of payment for the advance." }, { status: 400 });
+  }
 
   // Explicit installment schedule (amount + optional due date each).
   const installments = Array.isArray(body.installments)
@@ -63,7 +67,7 @@ export async function POST(request: Request) {
       totalEgp: total,
       dueDate: str(body.dueDate) || null,
       notes: str(body.notes),
-      advance: advanceAmount > 0 ? { amountEgp: advanceAmount, method: str(body.advanceMethod) || "cash" } : undefined,
+      advance: advanceAmount > 0 ? { amountEgp: advanceAmount, method: str(body.advanceMethod) || "bank_transfer", proofUrl: advanceProof } : undefined,
       installments: installments && installments.length > 0 ? installments : undefined,
       installmentCount: num(body.installmentCount) || undefined,
       firstDueDate: str(body.firstDueDate) || null,

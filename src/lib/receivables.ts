@@ -10,6 +10,8 @@ export interface Payment {
   kind: string;
   note: string;
   paidAt: string;
+  /** Proof-of-payment document (bank receipt / cheque image or PDF) URL. */
+  proofUrl: string;
 }
 export interface Installment {
   id: number;
@@ -66,7 +68,7 @@ export async function createReceivable(
     totalEgp: number;
     dueDate?: string | null;
     notes?: string;
-    advance?: { amountEgp: number; method: string };
+    advance?: { amountEgp: number; method: string; proofUrl?: string };
     /** Explicit installment schedule (amount + optional due date each). */
     installments?: { amountEgp: number; dueDate?: string | null }[];
     /** Fallback: auto-split the remaining balance into N equal monthly steps. */
@@ -76,7 +78,8 @@ export async function createReceivable(
   createdBy: number | null
 ): Promise<ReceivableDetail> {
   const advAmt = input.advance && input.advance.amountEgp > 0 ? Math.round(input.advance.amountEgp) : 0;
-  const advMethod = input.advance?.method ?? "cash";
+  const advMethod = input.advance?.method ?? "bank_transfer";
+  const advProof = input.advance?.proofUrl ?? "";
   const remaining = Math.max(0, input.totalEgp - advAmt);
 
   // Build the installment schedule up front (explicit wins; else auto-split),
@@ -111,8 +114,8 @@ export async function createReceivable(
       RETURNING id
     ),
     adv AS (
-      INSERT INTO receivable_payments (receivable_id, amount_egp, method, kind, recorded_by)
-      SELECT r.id, ${advAmt}, ${advMethod}, 'advance', ${createdBy} FROM r WHERE ${advAmt} > 0
+      INSERT INTO receivable_payments (receivable_id, amount_egp, method, kind, proof_url, recorded_by)
+      SELECT r.id, ${advAmt}, ${advMethod}, 'advance', ${advProof}, ${createdBy} FROM r WHERE ${advAmt} > 0
       RETURNING 1
     ),
     ins AS (
@@ -171,14 +174,14 @@ export async function getReceivable(id: number): Promise<ReceivableDetail | null
   const paid = await paidSum(id);
   const payRows = (await db()`
     SELECT * FROM receivable_payments WHERE receivable_id = ${id} ORDER BY paid_at
-  `) as { id: number; amount_egp: number; method: string; kind: string; note: string; paid_at: string }[];
+  `) as { id: number; amount_egp: number; method: string; kind: string; note: string; paid_at: string; proof_url?: string }[];
   const instRows = (await db()`
     SELECT * FROM installments WHERE receivable_id = ${id} ORDER BY seq
   `) as { id: number; seq: number; due_date: string | null; amount_egp: number }[];
   return {
     ...toReceivable(rows[0], paid),
     payments: payRows.map((p) => ({
-      id: Number(p.id), amountEgp: Number(p.amount_egp), method: p.method, kind: p.kind, note: p.note, paidAt: isoString(p.paid_at),
+      id: Number(p.id), amountEgp: Number(p.amount_egp), method: p.method, kind: p.kind, note: p.note, paidAt: isoString(p.paid_at), proofUrl: p.proof_url ?? "",
     })),
     installments: instRows.map((i) => ({
       id: Number(i.id), seq: Number(i.seq), dueDate: dateOnly(i.due_date), amountEgp: Number(i.amount_egp),
@@ -188,14 +191,14 @@ export async function getReceivable(id: number): Promise<ReceivableDetail | null
 
 export async function recordPayment(
   id: number,
-  input: { amountEgp: number; method: string; note?: string; kind?: string },
+  input: { amountEgp: number; method: string; note?: string; kind?: string; proofUrl?: string },
   recordedBy: number | null
 ): Promise<ReceivableDetail | null> {
   const exists = (await db()`SELECT id FROM receivables WHERE id = ${id}`) as { id: number }[];
   if (!exists[0]) return null;
   await db()`
-    INSERT INTO receivable_payments (receivable_id, amount_egp, method, kind, note, recorded_by)
-    VALUES (${id}, ${Math.round(input.amountEgp)}, ${input.method}, ${input.kind ?? "installment"}, ${input.note ?? ""}, ${recordedBy})
+    INSERT INTO receivable_payments (receivable_id, amount_egp, method, kind, note, proof_url, recorded_by)
+    VALUES (${id}, ${Math.round(input.amountEgp)}, ${input.method}, ${input.kind ?? "installment"}, ${input.note ?? ""}, ${input.proofUrl ?? ""}, ${recordedBy})
   `;
   await refreshStatus(id);
   return getReceivable(id);

@@ -35,12 +35,17 @@ export async function POST(
   if (!(amount > 0)) {
     return NextResponse.json({ error: "Enter a positive amount." }, { status: 400 });
   }
+  const proofUrl = typeof body.proofUrl === "string" ? body.proofUrl.trim() : "";
+  if (!proofUrl) {
+    return NextResponse.json({ error: "Attach a proof of payment before recording." }, { status: 400 });
+  }
   const rec = await recordPayment(
     id,
     {
       amountEgp: amount,
-      method: typeof body.method === "string" ? body.method : "cash",
+      method: typeof body.method === "string" ? body.method : "bank_transfer",
       note: typeof body.note === "string" ? body.note.trim().slice(0, 300) : "",
+      proofUrl,
     },
     guard.user.uid
   );
