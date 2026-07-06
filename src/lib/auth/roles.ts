@@ -41,8 +41,8 @@ export const PERMISSIONS = {
   "catalog.editStock": ["owner", "admin", "inventory"],
   "catalog.receiveBatch": ["owner", "admin", "inventory"],
   // Factory production orders (reorder automation + manual)
-  "production.view": ["owner", "admin", "factory", "inventory"], // see the queue
-  "production.manage": ["owner", "admin"], // create + approve/reject
+  "production.view": ["owner", "admin", "factory", "inventory", "sales"], // awareness across teams
+  "production.manage": ["owner", "admin"], // ONLY owner/admin authorize orders (manual or auto-raised)
   // Factory batches / receiving
   "batches.view": ["owner", "admin", "inventory", "factory"],
   "batches.create": ["owner", "admin", "factory"], // declare a factory dispatch

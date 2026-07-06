@@ -1,5 +1,11 @@
 import { db } from "./db";
 import { isoString } from "./db-dates";
+import { createBatch } from "./batches";
+import { createApproval } from "./approvals";
+
+/** Default production lead time (days) for auto-raised orders' deadline. */
+const DEFAULT_LEAD_DAYS = 14;
+const defaultDeadline = () => new Date(Date.now() + DEFAULT_LEAD_DAYS * 86_400_000).toISOString();
 
 export type ProductionStatus =
   | "pending_approval" | "approved" | "in_production" | "done" | "rejected" | "cancelled";
@@ -17,13 +23,14 @@ export interface ProductionOrder {
   decidedBy: number | null;
   decidedAt: string | null;
   batchId: number | null;
+  deadline: string | null;
   createdAt: string;
 }
 
 interface Row {
   id: number; slug: string; name: string; qty: number; status: string; reason: string;
   note: string; created_by: number | null; decided_by: number | null; decided_at: string | null;
-  batch_id: number | null; created_at: string;
+  batch_id: number | null; deadline: string | null; created_at: string;
 }
 function toPO(r: Row): ProductionOrder {
   return {
@@ -33,6 +40,7 @@ function toPO(r: Row): ProductionOrder {
     decidedBy: r.decided_by === null ? null : Number(r.decided_by),
     decidedAt: r.decided_at ? isoString(r.decided_at) : null,
     batchId: r.batch_id === null ? null : Number(r.batch_id),
+    deadline: r.deadline ? isoString(r.deadline) : null,
     createdAt: isoString(r.created_at),
   };
 }
@@ -61,13 +69,14 @@ export async function countPendingProduction(): Promise<number> {
  * order per product) → returns null if the product already has an open one.
  */
 export async function createProductionOrder(
-  input: { slug: string; name: string; qty: number; reason?: ProductionReason; note?: string },
+  input: { slug: string; name: string; qty: number; reason?: ProductionReason; note?: string; deadline?: string | null },
   createdBy: number | null
 ): Promise<ProductionOrder | null> {
+  const deadline = input.deadline ?? defaultDeadline();
   const rows = (await db()`
-    INSERT INTO production_orders (slug, name, qty, reason, note, created_by)
+    INSERT INTO production_orders (slug, name, qty, reason, note, created_by, deadline)
     VALUES (${input.slug}, ${input.name}, ${Math.max(1, Math.round(input.qty))},
-            ${input.reason ?? "manual"}, ${input.note ?? ""}, ${createdBy})
+            ${input.reason ?? "manual"}, ${input.note ?? ""}, ${createdBy}, ${deadline})
     ON CONFLICT DO NOTHING
     RETURNING *
   `) as Row[];
@@ -123,8 +132,8 @@ export async function raiseProduction(
     `) as { id: number }[];
     if (upd.length === 0) {
       await db()`
-        INSERT INTO production_orders (slug, name, qty, reason, note)
-        VALUES (${slug}, ${name}, ${add}, ${reason}, ${"Auto: invoice shortfall"})
+        INSERT INTO production_orders (slug, name, qty, reason, note, deadline)
+        VALUES (${slug}, ${name}, ${add}, ${reason}, ${"Auto: invoice shortfall"}, ${defaultDeadline()})
         ON CONFLICT DO NOTHING
       `;
     }
@@ -158,6 +167,51 @@ export async function checkReorder(slugs: string[]): Promise<void> {
   } catch {
     /* reorder is best-effort; never break the stock write that triggered it */
   }
+}
+
+export interface DispatchResult {
+  ok: boolean;
+  reason?: "not_found" | "bad_status" | "bad_qty";
+  order?: ProductionOrder;
+  batchId?: number;
+  escalated?: boolean;
+}
+
+/**
+ * Factory dispatches a produced order to the warehouse: creates a batch (the
+ * existing dispatch → receive → stock flow) for the ACTUAL produced quantity and
+ * marks the production order done. If the dispatched quantity differs from what
+ * was ordered, an approval is raised to Owner/Admin (production_discrepancy).
+ */
+export async function dispatchProductionOrder(
+  id: number, dispatchQty: number, dispatchedBy: number | null
+): Promise<DispatchResult> {
+  const order = await getProductionOrder(id);
+  if (!order) return { ok: false, reason: "not_found" };
+  if (order.status !== "approved" && order.status !== "in_production") return { ok: false, reason: "bad_status" };
+  const qty = Math.round(dispatchQty);
+  if (!(qty > 0)) return { ok: false, reason: "bad_qty" };
+
+  const batch = await createBatch(
+    { reference: `PRD-${order.id}`, supplier: "Factory", notes: order.note || "",
+      lines: [{ slug: order.slug, name: order.name, expectedQty: qty }] },
+    dispatchedBy
+  );
+  await setProductionStatus(id, "done", batch.id);
+
+  let escalated = false;
+  if (qty !== order.qty) {
+    escalated = true;
+    await createApproval({
+      type: "production_discrepancy",
+      refBatchId: null, // NOT the batch-discrepancy flow — pure escalation, no stock side effect
+      title: `Production PRD-${order.id} (${order.name}): dispatched ${qty} vs ordered ${order.qty}`,
+      detail: { productionId: order.id, slug: order.slug, name: order.name, orderedQty: order.qty, dispatchedQty: qty, batchId: batch.id },
+      raisedBy: dispatchedBy,
+    });
+  }
+  const updated = await getProductionOrder(id);
+  return { ok: true, order: updated ?? undefined, batchId: batch.id, escalated };
 }
 
 export { OPEN as OPEN_PRODUCTION_STATUSES };

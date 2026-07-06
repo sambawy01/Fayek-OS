@@ -25,6 +25,21 @@ async function readError(res: Response): Promise<string> {
   return d.error ?? `Request failed (${res.status}).`;
 }
 
+/** "due in 3d 4h" / "due in 5h" / "overdue 2d" — with a colour class. */
+function countdown(deadlineIso: string | null): { text: string; cls: string } | null {
+  if (!deadlineIso) return null;
+  const ms = new Date(deadlineIso).getTime() - Date.now();
+  if (Number.isNaN(ms)) return null;
+  const overdue = ms < 0;
+  const abs = Math.abs(ms);
+  const d = Math.floor(abs / 86_400_000);
+  const h = Math.floor((abs % 86_400_000) / 3_600_000);
+  const span = d > 0 ? `${d}d ${h}h` : `${h}h`;
+  if (overdue) return { text: `overdue ${span}`, cls: "bg-[#CC4038]/12 text-[#CC4038]" };
+  if (ms < 2 * 86_400_000) return { text: `due in ${span}`, cls: "bg-[#D6941F]/15 text-[#8A5A12]" };
+  return { text: `due in ${span}`, cls: "bg-[#357F75]/12 text-[#357F75]" };
+}
+
 export default function ProductionSection({
   initialOrders, products, canManage,
 }: {
@@ -37,10 +52,12 @@ export default function ProductionSection({
   const [filter, setFilter] = useState<"open" | "pending_approval" | "done" | "all">("open");
   const [slug, setSlug] = useState("");
   const [qty, setQty] = useState("");
+  const [deadline, setDeadline] = useState("");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+  const [dispatchQty, setDispatchQty] = useState<Record<number, string>>({});
 
   const counts = orders.reduce<Record<string, number>>((m, o) => { m[o.status] = (m[o.status] ?? 0) + 1; return m; }, {});
   const shown = orders.filter((o) =>
@@ -56,12 +73,12 @@ export default function ProductionSection({
       const name = products.find((p) => p.slug === slug)?.name ?? "";
       const res = await fetch("/api/admin/production-orders", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slug, name, qty: Number(qty), note }),
+        body: JSON.stringify({ slug, name, qty: Number(qty), note, deadline: deadline || null }),
       });
       if (!res.ok) { setError(await readError(res)); return; }
       const { order } = (await res.json()) as { order: ProductionOrder };
       setOrders((p) => [order, ...p]);
-      setSlug(""); setQty(""); setNote("");
+      setSlug(""); setQty(""); setNote(""); setDeadline("");
       setMsg(`Production order #${order.id} created (pending approval).`);
     } catch { setError("Network error — please try again."); }
     finally { setBusy(false); }
@@ -76,6 +93,23 @@ export default function ProductionSection({
       if (!res.ok) { setError(await readError(res)); return; }
       const { order } = (await res.json()) as { order: ProductionOrder };
       setOrders((p) => p.map((o) => o.id === order.id ? order : o));
+    } catch { setError("Network error — please try again."); }
+  }
+
+  async function doDispatch(o: ProductionOrder) {
+    const q = Number(dispatchQty[o.id] ?? String(o.qty));
+    if (!(q > 0)) { setError("Enter the dispatched quantity."); return; }
+    setError(null); setMsg(null);
+    try {
+      const res = await fetch(`/api/admin/production-orders/${o.id}`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "dispatch", qty: q }),
+      });
+      if (!res.ok) { setError(await readError(res)); return; }
+      const data = (await res.json()) as { order: ProductionOrder; escalated?: boolean };
+      setOrders((p) => p.map((x) => x.id === data.order.id ? data.order : x));
+      setMsg(data.escalated
+        ? `Dispatched ${q} to the warehouse — differs from the ordered ${o.qty}; escalated to Owner/Admin.`
+        : `Dispatched ${q} to the warehouse.`);
     } catch { setError("Network error — please try again."); }
   }
 
@@ -101,6 +135,7 @@ export default function ProductionSection({
               {products.map((p) => <option key={p.slug} value={p.slug}>{p.name}</option>)}
             </select>
             <input className={inputCls + " w-28"} inputMode="numeric" placeholder="Quantity" value={qty} onChange={(e) => setQty(e.target.value)} />
+            <input className={inputCls} type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} title="Deadline (defaults to 14 days)" />
             <input className={inputCls + " min-w-[12rem] flex-1"} placeholder="Note (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
             <button className={primaryBtn} disabled={busy} onClick={() => void create()}>{busy ? "Creating…" : "Create & send"}</button>
           </div>
@@ -126,7 +161,11 @@ export default function ProductionSection({
                 <p className="text-sm font-medium text-[#0E2A47]">PRD-{o.id} · {o.name || o.slug} · {o.qty} units</p>
                 <p className="text-xs text-[#5B7186]">{o.reason === "auto_reorder" ? "Auto-reorder" : o.reason === "invoice_shortfall" ? "Invoice shortfall" : "Manual"}{o.note ? ` · ${o.note}` : ""}</p>
               </div>
-              <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_STYLE[o.status] ?? ""}`}>{STATUS_LABEL[o.status] ?? o.status}</span>
+              <div className="flex shrink-0 items-center gap-2">
+                {(() => { const c = (o.status === "pending_approval" || o.status === "approved" || o.status === "in_production") ? countdown(o.deadline) : null;
+                  return c ? <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${c.cls}`}>{c.text}</span> : null; })()}
+                <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_STYLE[o.status] ?? ""}`}>{STATUS_LABEL[o.status] ?? o.status}</span>
+              </div>
             </div>
             <div className="mt-2 flex flex-wrap items-center gap-2">
               {canManage && o.status === "pending_approval" && (
@@ -136,7 +175,15 @@ export default function ProductionSection({
                 </>
               )}
               {o.status === "approved" && <button className={primaryBtn} onClick={() => void act(o.id, "start")}>Start production</button>}
-              {o.status === "in_production" && <button className={primaryBtn} onClick={() => void act(o.id, "done")}>Mark produced</button>}
+              {o.status === "in_production" && (
+                <>
+                  <span className="text-xs text-[#5B7186]">Dispatch</span>
+                  <input className={inputCls + " w-24"} inputMode="numeric" placeholder={String(o.qty)}
+                    value={dispatchQty[o.id] ?? String(o.qty)}
+                    onChange={(e) => setDispatchQty((m) => ({ ...m, [o.id]: e.target.value }))} />
+                  <button className={primaryBtn} onClick={() => void doDispatch(o)}>Dispatch to warehouse</button>
+                </>
+              )}
               {canManage && (o.status === "approved" || o.status === "in_production") && (
                 <button className={subtleBtn} onClick={() => void act(o.id, "cancel")}>Cancel</button>
               )}

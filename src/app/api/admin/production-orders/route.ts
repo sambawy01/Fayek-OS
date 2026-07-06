@@ -26,10 +26,11 @@ export async function POST(request: Request) {
   const name = typeof body.name === "string" ? body.name.trim() : "";
   const qty = typeof body.qty === "number" ? Math.round(body.qty) : NaN;
   const note = typeof body.note === "string" ? body.note.trim() : "";
+  const deadline = typeof body.deadline === "string" && body.deadline ? body.deadline : null;
   if (!slug || !(qty > 0)) {
     return NextResponse.json({ error: "Pick a product and a quantity (more than 0)." }, { status: 400 });
   }
-  const order = await createProductionOrder({ slug, name, qty, reason: "manual", note }, guard.user.uid);
+  const order = await createProductionOrder({ slug, name, qty, reason: "manual", note, deadline }, guard.user.uid);
   if (!order) {
     return NextResponse.json({ error: "This product already has an open production order." }, { status: 409 });
   }
