@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import type { Product } from "@/lib/catalog";
 
 /**
@@ -626,6 +626,8 @@ export default function ProductsSection({
   canEditStock?: boolean;
 }) {
   const [products, setProducts] = useState<Product[]>(initialProducts);
+  // Reflect server auto-refreshes (own actions, cron, other users) into the list.
+  useEffect(() => { setProducts(initialProducts); }, [initialProducts]);
   const [editingSlug, setEditingSlug] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [reportFilter, setReportFilter] = useState<"all" | "tracked" | "low" | "out">("all");

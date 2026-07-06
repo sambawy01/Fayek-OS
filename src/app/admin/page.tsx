@@ -28,6 +28,7 @@ import {
 } from "@/lib/sales";
 import ClientDispatchSection from "./client-dispatch-section";
 import AdminTabs, { type AdminTab } from "./admin-tabs";
+import AutoRefresh from "./auto-refresh";
 import SignOut from "./sign-out";
 import OrderBookSection from "./order-book-section";
 import ProductsSection from "./products-section";
@@ -399,6 +400,7 @@ export default async function AdminPage() {
         </div>
       </header>
 
+      <AutoRefresh />
       <AdminTabs tabs={tabs} />
     </main>
   );

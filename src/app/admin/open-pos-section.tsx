@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { PurchaseOrder, PurchaseOrderDetail } from "@/lib/sales";
 import InstallmentBuilder, { type Inst } from "./installment-builder";
 import { ProofField } from "./proof-upload";
@@ -18,6 +18,8 @@ async function readError(res: Response): Promise<string> {
 
 export default function OpenPOsSection({ initialOpen }: { initialOpen: PurchaseOrder[] }) {
   const [items, setItems] = useState<PurchaseOrder[]>(initialOpen);
+  // Reflect server auto-refreshes (own actions, cron, other users) into the list.
+  useEffect(() => { setItems(initialOpen); }, [initialOpen]);
   const [error, setError] = useState<string | null>(null);
 
   return (

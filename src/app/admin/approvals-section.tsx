@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { Approval } from "@/lib/approvals";
 
 interface DiscLine { name: string; expectedQty: number; receivedQty: number; diff: number }
@@ -24,6 +24,8 @@ export default function ApprovalsSection({
   initialApprovals: Approval[];
 }) {
   const [approvals, setApprovals] = useState<Approval[]>(initialApprovals);
+  // Reflect server auto-refreshes (own actions, cron, other users) into the list.
+  useEffect(() => { setApprovals(initialApprovals); }, [initialApprovals]);
   const [error, setError] = useState<string | null>(null);
 
   const pending = approvals.filter((a) => a.status === "pending");

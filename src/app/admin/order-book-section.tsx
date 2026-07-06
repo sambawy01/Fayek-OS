@@ -12,7 +12,8 @@ type Filter = "all" | "open" | "invoiced" | "fulfilled" | "closed";
  * POs are created in the Purchase Orders tab and processed in Finance.
  */
 export default function OrderBookSection({ initial }: { initial: PurchaseOrder[] }) {
-  const [items] = useState<PurchaseOrder[]>(initial);
+  // Read-only monitor: use the server prop directly so it reflects auto-refreshes.
+  const items = initial;
   const [filter, setFilter] = useState<Filter>("all");
 
   const counts = items.reduce<Record<string, number>>((m, po) => { m[po.status] = (m[po.status] ?? 0) + 1; return m; }, {});

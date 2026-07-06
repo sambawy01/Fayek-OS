@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { Receivable, ReceivableDetail } from "@/lib/receivables";
 import type { CompanyDirectory } from "@/lib/companies";
 import InstallmentBuilder, { type Inst } from "./installment-builder";
@@ -37,6 +37,8 @@ export default function ReceivablesSection({
   initialReceivables: Receivable[];
 }) {
   const [items, setItems] = useState<Receivable[]>(initialReceivables);
+  // Reflect server auto-refreshes (own actions, cron, other users) into the list.
+  useEffect(() => { setItems(initialReceivables); }, [initialReceivables]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [adding, setAdding] = useState(false);

@@ -29,6 +29,8 @@ export default function CustomersSection({
   canAccount: boolean;
 }) {
   const [companies, setCompanies] = useState<CompanyDirectory[]>(initialCompanies);
+  // Reflect server auto-refreshes (own actions, cron, other users) into the list.
+  useEffect(() => { setCompanies(initialCompanies); }, [initialCompanies]);
   const [search, setSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);

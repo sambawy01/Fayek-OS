@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { ProductOpt } from "./product-combobox";
 import type { PurchaseOrder } from "@/lib/sales";
 import {
@@ -21,6 +21,8 @@ export default function PurchaseOrdersSection({
   initial: PurchaseOrder[];
 }) {
   const [items, setItems] = useState<PurchaseOrder[]>(initial);
+  // Reflect server auto-refreshes (own actions, cron, other users) into the list.
+  useEffect(() => { setItems(initial); }, [initial]);
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);

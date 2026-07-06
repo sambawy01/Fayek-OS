@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { Lead, LeadStatus } from "@/lib/leads";
 
 const primaryBtn = "rounded-full bg-[#1668C7] px-4 py-2 text-sm font-medium text-[#F4F8FD] transition hover:opacity-90 disabled:opacity-50";
@@ -25,6 +25,8 @@ export default function ProspectingSection({
   canRun: boolean;
 }) {
   const [leads, setLeads] = useState<Lead[]>(initialLeads);
+  // Reflect server auto-refreshes (own actions, daily run, other users) into the list.
+  useEffect(() => { setLeads(initialLeads); }, [initialLeads]);
   const [filter, setFilter] = useState<"pending" | "approved" | "rejected" | "all">("pending");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);

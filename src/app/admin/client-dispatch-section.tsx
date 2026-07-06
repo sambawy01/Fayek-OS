@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { PurchaseOrderDetail } from "@/lib/sales";
 
 const primaryBtn = "rounded-full bg-[#1668C7] px-4 py-2 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50";
@@ -22,6 +22,8 @@ export default function ClientDispatchSection({
   canConfirm: boolean;
 }) {
   const [items, setItems] = useState<PurchaseOrderDetail[]>(initial);
+  // Reflect server auto-refreshes (own actions, cron, other users) into the list.
+  useEffect(() => { setItems(initial); }, [initial]);
   const [busyId, setBusyId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<number[]>([]);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { Batch, BatchDetail } from "@/lib/batches";
 import ProductCombobox from "./product-combobox";
 
@@ -45,6 +45,8 @@ export default function ReceivingSection({
   mode?: "dispatch" | "receive";
 }) {
   const [batches, setBatches] = useState<Batch[]>(initialBatches);
+  // Reflect server auto-refreshes (own actions, cron, other users) into the list.
+  useEffect(() => { setBatches(initialBatches); }, [initialBatches]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [adding, setAdding] = useState(false);

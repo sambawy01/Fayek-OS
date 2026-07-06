@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ROLES, ROLE_LABELS, type Role } from "@/lib/auth/roles";
 
 export interface AdminUser {
@@ -35,6 +35,8 @@ export default function UsersSection({
   currentRole: Role;
 }) {
   const [users, setUsers] = useState<AdminUser[]>(initialUsers);
+  // Reflect server auto-refreshes (own actions, cron, other users) into the list.
+  useEffect(() => { setUsers(initialUsers); }, [initialUsers]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 

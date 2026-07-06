@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { ProductOpt } from "./product-combobox";
 import type { Quotation } from "@/lib/sales";
 import {
@@ -39,6 +39,8 @@ export default function QuotationsSection({
 
 function Quotations({ products, priceBySlug, initial }: { products: ProductOpt[]; priceBySlug: Record<string, number>; initial: Quotation[] }) {
   const [items, setItems] = useState<Quotation[]>(initial);
+  // Reflect server auto-refreshes (own actions, cron, other users) into the list.
+  useEffect(() => { setItems(initial); }, [initial]);
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
