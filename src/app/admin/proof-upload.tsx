@@ -4,21 +4,24 @@ import { useState } from "react";
 
 /** Bank-transfer / cheque proof upload (image or PDF) → Blob, returns the URL. */
 export function ProofField({
-  value, onUploaded, onError, label = "Proof of payment",
+  value, onUploaded, onError, onUploadingChange, label = "Proof of payment",
 }: {
   value: string;
   onUploaded: (url: string) => void;
   onError: (msg: string) => void;
+  /** Reports upload in-flight state so callers can block submit until it's done. */
+  onUploadingChange?: (uploading: boolean) => void;
   label?: string;
 }) {
   const [uploading, setUploading] = useState(false);
+  const setBusy = (b: boolean) => { setUploading(b); onUploadingChange?.(b); };
 
   async function handle(file: File) {
     if (!/^(image\/(jpeg|png|webp)|application\/pdf)$/.test(file.type)) {
       return onError("Proof must be a JPEG, PNG, WebP or PDF.");
     }
     if (file.size > 8 * 1024 * 1024) return onError("Proof must be at most 8 MB.");
-    setUploading(true);
+    setBusy(true);
     try {
       const data = new FormData();
       data.append("file", file);
@@ -32,7 +35,7 @@ export function ProofField({
     } catch {
       onError("Upload failed — please try again.");
     } finally {
-      setUploading(false);
+      setBusy(false);
     }
   }
 

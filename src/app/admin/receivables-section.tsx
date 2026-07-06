@@ -48,6 +48,7 @@ export default function ReceivablesSection({
     totalEgp: "", dueDate: "", advanceAmount: "", advanceMethod: "bank_transfer", advanceProofUrl: "", notes: "",
   });
   const [installments, setInstallments] = useState<Inst[]>([]);
+  const [proofUploading, setProofUploading] = useState(false);
   const [companyQ, setCompanyQ] = useState("");
   const [companyHits, setCompanyHits] = useState<CompanyDirectory[]>([]);
 
@@ -62,6 +63,7 @@ export default function ReceivablesSection({
   }
 
   async function create() {
+    if (proofUploading) return setError("Hold on — the proof of payment is still uploading.");
     setBusy(true); setError(null);
     try {
       const res = await fetch("/api/admin/receivables", {
@@ -132,7 +134,7 @@ export default function ReceivablesSection({
                 {METHODS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
               </select></div>
             {Number(f.advanceAmount || "0") > 0 && (
-              <div><ProofField label="Advance proof" value={f.advanceProofUrl} onUploaded={(url) => setF((s) => ({ ...s, advanceProofUrl: url }))} onError={setError} /></div>
+              <div><ProofField label="Advance proof" value={f.advanceProofUrl} onUploaded={(url) => setF((s) => ({ ...s, advanceProofUrl: url }))} onUploadingChange={setProofUploading} onError={setError} /></div>
             )}
           </div>
           <div className="mt-4">
@@ -143,7 +145,7 @@ export default function ReceivablesSection({
             />
           </div>
           <div className="mt-4 flex gap-2">
-            <button className={primaryBtn} disabled={busy || !f.totalEgp} onClick={() => void create()}>Create</button>
+            <button className={primaryBtn} disabled={busy || proofUploading || !f.totalEgp} onClick={() => void create()}>{proofUploading ? "Uploading proof…" : "Create"}</button>
             <button className={subtleBtn} onClick={() => setAdding(false)}>Cancel</button>
           </div>
         </div>
@@ -173,6 +175,7 @@ function ReceivableRow({
   const [open, setOpen] = useState(false);
   const [detail, setDetail] = useState<ReceivableDetail | null>(null);
   const [pay, setPay] = useState({ amount: "", method: "bank_transfer", proofUrl: "" });
+  const [proofUploading, setProofUploading] = useState(false);
   const [busy, setBusy] = useState(false);
 
   async function load() {
@@ -185,6 +188,7 @@ function ReceivableRow({
   }
 
   async function record() {
+    if (proofUploading) return onError("Hold on — the proof of payment is still uploading.");
     if (!(Number(pay.amount) > 0)) return onError("Enter a positive amount.");
     if (!pay.proofUrl) return onError("Attach a proof of payment before recording.");
     setBusy(true);
@@ -247,10 +251,12 @@ function ReceivableRow({
                   onChange={(e) => setPay({ ...pay, method: e.target.value })}>
                   {METHODS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                 </select>
-                <button className={primaryBtn} disabled={busy} onClick={() => void record()}>Record payment</button>
+                <button className={primaryBtn} disabled={busy || proofUploading} onClick={() => void record()}>
+                  {proofUploading ? "Uploading proof…" : busy ? "Recording…" : "Record payment"}
+                </button>
               </div>
               <div className="mt-2 max-w-xs">
-                <ProofField value={pay.proofUrl} onUploaded={(url) => setPay((s) => ({ ...s, proofUrl: url }))} onError={onError} />
+                <ProofField value={pay.proofUrl} onUploaded={(url) => setPay((s) => ({ ...s, proofUrl: url }))} onUploadingChange={setProofUploading} onError={onError} />
               </div>
             </div>
           )}

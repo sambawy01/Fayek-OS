@@ -181,6 +181,15 @@ export async function renderLetterheadPdf(
     month: "long",
     year: "numeric",
   }).format(now);
+  // Precise generation signature for the footer (date + time, Cairo).
+  const generatedStamp = `Generated ${new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Africa/Cairo",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(now)} · Africa/Cairo`;
 
   const doc = new PDFDocument({
     size: "A4",
@@ -260,6 +269,16 @@ export async function renderLetterheadPdf(
         width: contentWidth,
         align: "center",
         characterSpacing: 0.5,
+        features: NO_LIGATURES,
+      });
+    doc
+      .font("Sans")
+      .fontSize(8)
+      .fillColor(MUTED)
+      .text(generatedStamp, PAGE_MARGIN, footerY + 26, {
+        width: contentWidth,
+        align: "center",
+        characterSpacing: 0.3,
         features: NO_LIGATURES,
       });
     doc.restore();

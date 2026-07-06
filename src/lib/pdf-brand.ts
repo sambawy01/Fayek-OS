@@ -96,8 +96,10 @@ export interface BrandedDoc {
 }
 
 /** Create an A4 PDFDocument with the branded header + footer on every page. */
-export async function createBrandedDoc(opts: { title: string }): Promise<BrandedDoc> {
+export async function createBrandedDoc(opts: { title: string; now?: Date }): Promise<BrandedDoc> {
   const [logo, fonts] = await Promise.all([loadLogo(), loadFonts()]);
+  // Captured once so every page carries the same generation signature.
+  const generatedStamp = `Generated ${fmtDateTime(opts.now ?? new Date())} · Africa/Cairo`;
 
   const doc = new PDFDocument({
     size: "A4",
@@ -137,6 +139,8 @@ export async function createBrandedDoc(opts: { title: string }): Promise<Branded
     doc.moveTo(PAGE_MARGIN, footerY).lineTo(pageWidth - PAGE_MARGIN, footerY).lineWidth(0.5).strokeColor(HAIRLINE).stroke();
     doc.font("Sans").fontSize(9).fillColor(MUTED)
       .text(FOOTER_TEXT, PAGE_MARGIN, footerY + 12, { width: contentWidth, align: "center", characterSpacing: 0.5, features: NO_LIGATURES });
+    doc.font("Sans").fontSize(8).fillColor(MUTED)
+      .text(generatedStamp, PAGE_MARGIN, footerY + 26, { width: contentWidth, align: "center", characterSpacing: 0.3, features: NO_LIGATURES });
     doc.restore();
     doc.page.margins.bottom = savedBottom;
     doc.x = savedX; doc.y = savedY;

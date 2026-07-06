@@ -50,6 +50,7 @@ function POCard({ po, onProcessed, onError }: { po: PurchaseOrder; onProcessed: 
   const [open, setOpen] = useState(false);
   const [detail, setDetail] = useState<PurchaseOrderDetail | null>(null);
   const [inv, setInv] = useState({ advanceEgp: "", dueDate: "", advanceMethod: "bank_transfer", advanceProofUrl: "" });
+  const [proofUploading, setProofUploading] = useState(false);
   const [installments, setInstallments] = useState<Inst[]>([]);
   const [busy, setBusy] = useState(false);
   const [dispatchRequested, setDispatchRequested] = useState(po.dispatchRequested);
@@ -75,6 +76,7 @@ function POCard({ po, onProcessed, onError }: { po: PurchaseOrder; onProcessed: 
     if (r) setDispatchRequested(true);
   }
   async function doInvoice() {
+    if (proofUploading) return onError("Hold on — the proof of payment is still uploading.");
     if (Number(inv.advanceEgp || "0") > 0 && !inv.advanceProofUrl) return onError("Attach a proof of payment for the advance.");
     const r = await act({
       action: "invoice",
@@ -139,11 +141,13 @@ function POCard({ po, onProcessed, onError }: { po: PurchaseOrder; onProcessed: 
                   <option value="bank_transfer">Bank transfer</option><option value="cheque">Cheque</option>
                 </select>
                 <input className="rounded-xl border border-[#0E2A47]/15 bg-white px-2 py-1.5 text-sm" type="date" value={inv.dueDate} onChange={(e) => setInv({ ...inv, dueDate: e.target.value })} title="Overall due date" />
-                <button className={primaryBtn} disabled={busy} onClick={() => void doInvoice()}>Invoice</button>
+                <button className={primaryBtn} disabled={busy || proofUploading} onClick={() => void doInvoice()}>
+                  {proofUploading ? "Uploading proof…" : busy ? "Invoicing…" : "Invoice"}
+                </button>
               </div>
               {Number(inv.advanceEgp || "0") > 0 && (
                 <div className="mt-2 max-w-xs">
-                  <ProofField label="Advance proof" value={inv.advanceProofUrl} onUploaded={(url) => setInv((s) => ({ ...s, advanceProofUrl: url }))} onError={onError} />
+                  <ProofField label="Advance proof" value={inv.advanceProofUrl} onUploaded={(url) => setInv((s) => ({ ...s, advanceProofUrl: url }))} onUploadingChange={setProofUploading} onError={onError} />
                 </div>
               )}
               <div className="mt-3">

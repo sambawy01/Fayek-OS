@@ -19,7 +19,16 @@ export default function AutoRefresh({ intervalMs = 30000 }: { intervalMs?: numbe
 
   useEffect(() => {
     let timer: ReturnType<typeof setInterval> | null = null;
-    const tick = () => router.refresh();
+    // Don't refresh mid-data-entry — a background refresh while the user is
+    // typing/uploading in a form is disruptive (and can interrupt an in-flight
+    // upload). Skip the interval tick while a form control is focused.
+    const isEditing = () => {
+      const el = document.activeElement as HTMLElement | null;
+      if (!el) return false;
+      const tag = el.tagName;
+      return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || el.isContentEditable;
+    };
+    const tick = () => { if (!isEditing()) router.refresh(); };
     const start = () => { if (timer === null) timer = setInterval(tick, intervalMs); };
     const stop = () => { if (timer !== null) { clearInterval(timer); timer = null; } };
 
