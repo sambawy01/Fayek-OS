@@ -1,0 +1,23 @@
+name: Smoke test
+
+# Post-deploy + scheduled health smoke: hits /api/health (app + DB reachable).
+# Runs every 6h as an uptime check and can be triggered manually after a deploy.
+# Set repo secret SMOKE_URL to point at a specific deployment; defaults to prod.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 */6 * * *"
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Health check
+        run: |
+          BASE="${SMOKE_URL:-https://fayek-os.vercel.app}"
+          echo "Checking $BASE/api/health"
+          code=$(curl -s -o /tmp/health.json -w "%{http_code}" --max-time 20 "$BASE/api/health")
+          echo "HTTP $code — $(cat /tmp/health.json)"
+          if [ "$code" != "200" ]; then echo "::error::health check failed ($code)"; exit 1; fi
+        env:
+          SMOKE_URL: ${{ secrets.SMOKE_URL }}

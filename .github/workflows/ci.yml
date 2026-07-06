@@ -1,0 +1,28 @@
+name: CI
+
+# Gate every push/PR: type-check + production build must pass before code
+# reaches production. Catches the class of regressions that a bad deploy ships.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Type-check
+        run: npx tsc --noEmit
+      - name: Production build
+        run: npx next build
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+          # Build never connects to the DB (routes are dynamic); a dummy secret
+          # keeps any build-time env reads happy.
+          SESSION_SECRET: "ci-build-only-dummy-secret-000000000000"
