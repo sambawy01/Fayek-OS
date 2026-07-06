@@ -60,9 +60,25 @@ export async function POST(
   }
 
   // "release" = Finance issues the Product Release Form → warehouse queue.
+  // Requires a proof of payment, UNLESS Owner/Admin waives it for a trusted key
+  // account (waive=true + an authorization note explaining the exception).
   if (body.action === "release" || body.action === "request-dispatch") {
     const note = typeof body.note === "string" ? body.note.trim() : "";
-    const r = await releaseToWarehouse(id, note, session.uid);
+    const proofUrl = typeof body.proofUrl === "string" ? body.proofUrl.trim() : "";
+    const waive = body.waive === true;
+    if (!waive && !proofUrl) {
+      return NextResponse.json(
+        { error: "Attach a proof of payment to release — or mark it a trusted-account exception." },
+        { status: 400 }
+      );
+    }
+    if (waive && !note) {
+      return NextResponse.json(
+        { error: "Add an authorization note for the trusted-account exception." },
+        { status: 400 }
+      );
+    }
+    const r = await releaseToWarehouse(id, note, session.uid, proofUrl);
     if (!r.ok) {
       const msg =
         r.reason === "not_found" ? "Not found." :
@@ -73,6 +89,8 @@ export async function POST(
     return NextResponse.json({ purchaseOrder: r.po });
   }
   if (body.action === "invoice") {
+    // Invoicing only raises the receivable + schedule — no payment is taken here
+    // (payment can't happen before an invoice exists), so no advance/proof.
     const num = (v: unknown) => (typeof v === "number" ? Math.round(v) : 0);
     const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
     const installments = Array.isArray(body.installments)
@@ -83,17 +101,9 @@ export async function POST(
           })
           .filter((x) => x.amountEgp > 0)
       : undefined;
-    const advanceEgp = num(body.advanceEgp);
-    const advanceProofUrl = str(body.advanceProofUrl);
-    if (advanceEgp > 0 && !advanceProofUrl) {
-      return NextResponse.json({ error: "Attach a proof of payment for the advance." }, { status: 400 });
-    }
     const po = await invoicePurchaseOrder(
       id,
       {
-        advanceEgp,
-        advanceMethod: str(body.advanceMethod) || "bank_transfer",
-        advanceProofUrl,
         installments: installments && installments.length > 0 ? installments : undefined,
         installmentCount: num(body.installmentCount) || undefined,
         dueDate: str(body.dueDate) || null,

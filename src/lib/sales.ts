@@ -193,7 +193,8 @@ export type ReleaseResult =
 export async function releaseToWarehouse(
   id: number,
   note: string,
-  releasedBy: number | null
+  releasedBy: number | null,
+  proofUrl = ""
 ): Promise<ReleaseResult> {
   const po = await getPurchaseOrder(id);
   if (!po) return { ok: false, reason: "not_found" };
@@ -205,6 +206,7 @@ export async function releaseToWarehouse(
         dispatch_released_at = now(),
         dispatch_released_by = ${releasedBy},
         dispatch_release_note = ${note},
+        dispatch_release_proof_url = ${proofUrl},
         updated_at = now()
     WHERE id = ${id}
   `;

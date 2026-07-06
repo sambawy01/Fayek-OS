@@ -49,13 +49,16 @@ export default function OpenPOsSection({ initialOpen }: { initialOpen: PurchaseO
 function POCard({ po, onProcessed, onError }: { po: PurchaseOrder; onProcessed: (id: number) => void; onError: (m: string) => void }) {
   const [open, setOpen] = useState(false);
   const [detail, setDetail] = useState<PurchaseOrderDetail | null>(null);
-  const [inv, setInv] = useState({ advanceEgp: "", dueDate: "", advanceMethod: "bank_transfer", advanceProofUrl: "" });
-  const [proofUploading, setProofUploading] = useState(false);
+  const [dueDate, setDueDate] = useState("");
   const [installments, setInstallments] = useState<Inst[]>([]);
   const [busy, setBusy] = useState(false);
   const [dispatchRequested, setDispatchRequested] = useState(po.dispatchRequested);
   const [invoiced, setInvoiced] = useState(!!po.receivableId);
+  // Product release: proof of payment (or an owner/admin trusted-account waiver).
   const [releaseNote, setReleaseNote] = useState("");
+  const [relProofUrl, setRelProofUrl] = useState("");
+  const [relProofUploading, setRelProofUploading] = useState(false);
+  const [relWaive, setRelWaive] = useState(false);
 
   async function load() {
     setOpen(!open);
@@ -72,18 +75,17 @@ function POCard({ po, onProcessed, onError }: { po: PurchaseOrder; onProcessed: 
     } finally { setBusy(false); }
   }
   async function doRelease() {
-    const r = await act({ action: "release", note: releaseNote });
+    if (relProofUploading) return onError("Hold on — the proof of payment is still uploading.");
+    if (!relWaive && !relProofUrl) return onError("Attach a proof of payment to release, or tick the trusted-account exception.");
+    if (relWaive && !releaseNote.trim()) return onError("Add an authorization note for the trusted-account exception.");
+    const r = await act({ action: "release", note: releaseNote, proofUrl: relProofUrl, waive: relWaive });
     if (r) setDispatchRequested(true);
   }
   async function doInvoice() {
-    if (proofUploading) return onError("Hold on — the proof of payment is still uploading.");
-    if (Number(inv.advanceEgp || "0") > 0 && !inv.advanceProofUrl) return onError("Attach a proof of payment for the advance.");
+    // No payment/proof at invoice — just raise the receivable + schedule.
     const r = await act({
       action: "invoice",
-      advanceEgp: Number(inv.advanceEgp || "0"),
-      advanceMethod: inv.advanceMethod,
-      advanceProofUrl: inv.advanceProofUrl,
-      dueDate: inv.dueDate || null,
+      dueDate: dueDate || null,
       installments: installments
         .map((i) => ({ amountEgp: Number(i.amount || "0"), dueDate: i.due || null }))
         .filter((i) => i.amountEgp > 0),
@@ -106,19 +108,30 @@ function POCard({ po, onProcessed, onError }: { po: PurchaseOrder; onProcessed: 
             <p className="mb-2 text-xs uppercase tracking-[0.06em] text-[#5B7186]">Product release → Warehouse</p>
             {!dispatchRequested ? (
               <>
-                {!invoiced && (
+                {!invoiced ? (
                   <p className="mb-2 text-xs text-[#8A5A12]">Invoice this PO first — goods are released to the warehouse only after invoicing.</p>
+                ) : (
+                  <p className="mb-2 text-xs text-[#5B7186]">Attach the customer&rsquo;s proof of payment to release — or waive it for a trusted key account (Owner/Admin).</p>
                 )}
+                {invoiced && !relWaive && (
+                  <div className="mb-2 max-w-xs">
+                    <ProofField label="Proof of payment" value={relProofUrl} onUploaded={setRelProofUrl} onUploadingChange={setRelProofUploading} onError={onError} />
+                  </div>
+                )}
+                <label className="mb-2 flex items-center gap-2 text-xs text-[#0E2A47]">
+                  <input type="checkbox" checked={relWaive} disabled={!invoiced} onChange={(e) => setRelWaive(e.target.checked)} />
+                  Trusted key account — release without proof (Owner/Admin exception)
+                </label>
                 <div className="flex flex-wrap items-center gap-2">
                   <input
                     className="min-w-[15rem] flex-1 rounded-xl border border-[#0E2A47]/15 bg-white px-2 py-1.5 text-sm disabled:opacity-50"
-                    placeholder="Authorization note (optional)"
+                    placeholder={relWaive ? "Authorization note (required for exception)" : "Authorization note (optional)"}
                     value={releaseNote}
                     disabled={!invoiced}
                     onChange={(e) => setReleaseNote(e.target.value)}
                   />
-                  <button className={primaryBtn} disabled={busy || !invoiced} onClick={() => void doRelease()}>
-                    Release to Warehouse
+                  <button className={primaryBtn} disabled={busy || !invoiced || relProofUploading} onClick={() => void doRelease()}>
+                    {relProofUploading ? "Uploading proof…" : "Release to Warehouse"}
                   </button>
                 </div>
               </>
@@ -135,26 +148,18 @@ function POCard({ po, onProcessed, onError }: { po: PurchaseOrder; onProcessed: 
           {!invoiced ? (
             <div className="mt-3 rounded-xl border border-[#1668C7]/20 bg-[#F4F8FD] px-3 py-2">
               <p className="mb-2 text-xs uppercase tracking-[0.06em] text-[#5B7186]">Invoice → receivable</p>
+              <p className="mb-2 text-xs text-[#5B7186]">Raises the receivable ({egp(po.totalEgp)}). No payment is taken here — record payments (with proof) in Receivables, or attach proof at release.</p>
               <div className="flex flex-wrap items-center gap-2">
-                <input className="w-28 rounded-xl border border-[#0E2A47]/15 bg-white px-2 py-1.5 text-sm" inputMode="numeric" placeholder="Advance EGP" value={inv.advanceEgp} onChange={(e) => setInv({ ...inv, advanceEgp: e.target.value })} />
-                <select className="rounded-xl border border-[#0E2A47]/15 bg-white px-2 py-1.5 text-sm" value={inv.advanceMethod} onChange={(e) => setInv({ ...inv, advanceMethod: e.target.value })}>
-                  <option value="bank_transfer">Bank transfer</option><option value="cheque">Cheque</option>
-                </select>
-                <input className="rounded-xl border border-[#0E2A47]/15 bg-white px-2 py-1.5 text-sm" type="date" value={inv.dueDate} onChange={(e) => setInv({ ...inv, dueDate: e.target.value })} title="Overall due date" />
-                <button className={primaryBtn} disabled={busy || proofUploading} onClick={() => void doInvoice()}>
-                  {proofUploading ? "Uploading proof…" : busy ? "Invoicing…" : "Invoice"}
+                <input className="rounded-xl border border-[#0E2A47]/15 bg-white px-2 py-1.5 text-sm" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} title="Overall due date" />
+                <button className={primaryBtn} disabled={busy} onClick={() => void doInvoice()}>
+                  {busy ? "Invoicing…" : "Invoice"}
                 </button>
               </div>
-              {Number(inv.advanceEgp || "0") > 0 && (
-                <div className="mt-2 max-w-xs">
-                  <ProofField label="Advance proof" value={inv.advanceProofUrl} onUploaded={(url) => setInv((s) => ({ ...s, advanceProofUrl: url }))} onUploadingChange={setProofUploading} onError={onError} />
-                </div>
-              )}
               <div className="mt-3">
                 <InstallmentBuilder
                   value={installments}
                   onChange={setInstallments}
-                  remaining={Math.max(0, po.totalEgp - Number(inv.advanceEgp || "0"))}
+                  remaining={po.totalEgp}
                 />
               </div>
             </div>
