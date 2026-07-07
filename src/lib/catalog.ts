@@ -41,6 +41,8 @@ export interface Product {
   reorderPoint: number;
   /** How many units to produce when reordering. */
   reorderQty: number;
+  /** Days to replenish (produce/buy). Drives the production deadline and the dynamic reorder point. */
+  leadTimeDays: number;
   /** Replenished externally (bought, not produced) — excluded from shortfall production. */
   frequentSupply: boolean;
   /**
@@ -93,6 +95,7 @@ export const SEED: readonly Product[] = SHOP_PRODUCTS.map((p) => ({
   active: true,
   reorderPoint: 10,
   reorderQty: 10,
+  leadTimeDays: 14,
   frequentSupply: false,
   createdAt: SEED_TIMESTAMP,
   updatedAt: SEED_TIMESTAMP,
@@ -138,7 +141,7 @@ interface ProductRow {
   name_ar: string; sub_ar: string; desc_ar: string; price_egp: number;
   photo: string; alt_en: string; alt_ar: string; quantity: number | null;
   sold_out: boolean; active: boolean; usage_en: string; usage_ar: string;
-  reorder_point?: number; reorder_qty?: number; frequent_supply?: boolean;
+  reorder_point?: number; reorder_qty?: number; lead_time_days?: number; frequent_supply?: boolean;
   created_at: unknown; updated_at: unknown;
 }
 
@@ -156,6 +159,7 @@ function rowToProduct(r: ProductRow): Product {
     active: Boolean(r.active),
     reorderPoint: r.reorder_point === undefined || r.reorder_point === null ? 10 : Number(r.reorder_point),
     reorderQty: r.reorder_qty === undefined || r.reorder_qty === null ? 10 : Number(r.reorder_qty),
+    leadTimeDays: r.lead_time_days === undefined || r.lead_time_days === null ? 14 : Number(r.lead_time_days),
     frequentSupply: Boolean(r.frequent_supply),
     ...(usageEn || usageAr ? { usage: { en: usageEn, ar: usageAr } } : {}),
     createdAt: isoString(r.created_at),

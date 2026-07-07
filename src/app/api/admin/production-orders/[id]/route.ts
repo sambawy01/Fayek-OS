@@ -1,13 +1,15 @@
 import { NextResponse } from "next/server";
 import { requireCapability } from "@/lib/auth/session-server";
-import { decideProductionOrder, setProductionStatus, dispatchProductionOrder } from "@/lib/production";
+import { decideProductionOrder, setProductionStatus, dispatchProductionOrder, getProductionOrder } from "@/lib/production";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
  * POST /api/admin/production-orders/[id]
- *  - { action: "approve" | "reject", note? }  → Owner/Admin decision (production.manage)
+ *  - { action: "approve" | "reject", note?, qty? }  → Owner/Admin decision (production.manage).
+ *      On approve, qty overrides the working quantity. Dropping below an
+ *      invoice_shortfall order's committed shortfall requires a note (guidance).
  *  - { action: "start" }                      → factory begins production (production.view)
  *  - { action: "dispatch", qty }              → factory dispatches to the warehouse:
  *      creates a batch for the produced qty; a mismatch vs the order escalates to
@@ -27,7 +29,22 @@ export async function POST(
   if (action === "approve" || action === "reject") {
     const guard = await requireCapability("production.manage");
     if ("error" in guard) return guard.error;
-    const order = await decideProductionOrder(id, action, guard.user.uid, note);
+    const qty = action === "approve" && typeof body.qty === "number" && Number.isFinite(body.qty) ? Math.max(1, Math.round(body.qty)) : null;
+    // Guidance: for invoice_shortfall orders, the committed floor is suggested_qty
+    // (units already promised to invoiced POs). Producing fewer needs a note.
+    if (qty !== null) {
+      const existing = await getProductionOrder(id);
+      if (existing && existing.reason === "invoice_shortfall") {
+        const floor = existing.suggestedQty ?? existing.qty;
+        if (qty < floor && !note) {
+          return NextResponse.json(
+            { error: `This order owes ${floor} units to already-invoiced orders. To approve fewer, add a note explaining why.` },
+            { status: 400 }
+          );
+        }
+      }
+    }
+    const order = await decideProductionOrder(id, action, guard.user.uid, note, qty);
     if (!order) return NextResponse.json({ error: "This order has already been decided." }, { status: 409 });
     return NextResponse.json({ order });
   }

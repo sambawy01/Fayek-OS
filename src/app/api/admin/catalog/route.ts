@@ -93,6 +93,7 @@ export async function POST(request: NextRequest) {
       active: input.active ?? true,
       reorderPoint: 10,
       reorderQty: 10,
+      leadTimeDays: 14,
       frequentSupply: false,
       createdAt: now,
       updatedAt: now,

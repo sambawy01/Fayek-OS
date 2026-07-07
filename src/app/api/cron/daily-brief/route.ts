@@ -8,6 +8,7 @@ import { gatherDailyBriefData } from "@/lib/daily-brief-data";
 import { cronAuthError } from "@/lib/reports/shared";
 import { getOwnerChatId } from "@/lib/assistant/state";
 import { sendMessage, telegramConfigured } from "@/lib/telegram";
+import { recomputeReorderPoints } from "@/lib/production";
 
 /**
  * Daily 8am-Cairo brief to the owner — GET, triggered by Vercel Cron.
@@ -34,6 +35,11 @@ export async function GET(request: NextRequest) {
   // --- auth: fail closed, constant-time (shared cron helper) ---------------
   const unauthorized = cronAuthError(request);
   if (unauthorized) return unauthorized;
+
+  // --- daily inventory maintenance: refresh velocity-driven reorder points ---
+  // Runs on every (once-daily) firing, before the hour guard, so the auto-reorder
+  // trigger stays current. Best-effort — never blocks the owner's brief.
+  try { await recomputeReorderPoints(); } catch (e) { console.error("[daily-brief] reorder-point recompute failed:", e); }
 
   // --- 8am-Cairo guard ------------------------------------------------------
   const force =

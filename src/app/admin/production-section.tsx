@@ -64,6 +64,8 @@ export default function ProductionSection({
   const [error, setError] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [dispatchQty, setDispatchQty] = useState<Record<number, string>>({});
+  const [approveQty, setApproveQty] = useState<Record<number, string>>({});
+  const [approveNote, setApproveNote] = useState<Record<number, string>>({});
   const [aiBusy, setAiBusy] = useState(false);
   const [suggestions, setSuggestions] = useState<(ProductionSuggestion & { qtyStr: string })[] | null>(null);
 
@@ -131,6 +133,32 @@ export default function ProductionSection({
       if (!res.ok) { setError(await readError(res)); return; }
       const { order } = (await res.json()) as { order: ProductionOrder };
       setOrders((p) => p.map((o) => o.id === order.id ? order : o));
+    } catch { setError("Network error — please try again."); }
+  }
+
+  /** Approve, with an optional quantity override. Enforces the invoice-shortfall
+   *  note guidance client-side before the server does. */
+  async function approve(o: ProductionOrder) {
+    setError(null); setMsg(null);
+    const q = Number(approveQty[o.id] ?? String(o.qty));
+    if (!(q > 0)) { setError("Enter a quantity to approve."); return; }
+    const note = (approveNote[o.id] ?? "").trim();
+    const floor = o.suggestedQty ?? o.qty;
+    if (o.reason === "invoice_shortfall" && q < floor && !note) {
+      setError(`PRD-${o.id} owes ${floor} units to already-invoiced orders. Add a note to approve fewer.`);
+      return;
+    }
+    try {
+      const res = await fetch(`/api/admin/production-orders/${o.id}`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "approve", qty: q, note }),
+      });
+      if (!res.ok) { setError(await readError(res)); return; }
+      const { order } = (await res.json()) as { order: ProductionOrder };
+      setOrders((p) => p.map((x) => x.id === order.id ? order : x));
+      setMsg(q !== o.qty
+        ? `Approved PRD-${order.id} at ${q} units (suggested ${o.suggestedQty ?? o.qty}).`
+        : `Approved PRD-${order.id}.`);
     } catch { setError("Network error — please try again."); }
   }
 
@@ -226,7 +254,7 @@ export default function ProductionSection({
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div className="min-w-0">
                 <p className="text-sm font-medium text-[#0E2A47]">PRD-{o.id} · {o.name || o.slug} · {o.qty} units</p>
-                <p className="text-xs text-[#5B7186]">{o.reason === "auto_reorder" ? "Auto-reorder" : o.reason === "invoice_shortfall" ? "Invoice shortfall" : "Manual"}{o.note ? ` · ${o.note}` : ""}</p>
+                <p className="text-xs text-[#5B7186]">{o.reason === "auto_reorder" ? "Auto-reorder" : o.reason === "invoice_shortfall" ? "Invoice shortfall" : "Manual"}{o.suggestedQty != null && o.suggestedQty !== o.qty ? ` · suggested ${o.suggestedQty}` : ""}{o.note ? ` · ${o.note}` : ""}</p>
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 {(() => { const c = (o.status === "pending_approval" || o.status === "approved" || o.status === "in_production") ? countdown(o.deadline) : null;
@@ -237,7 +265,15 @@ export default function ProductionSection({
             <div className="mt-2 flex flex-wrap items-center gap-2">
               {manage && o.status === "pending_approval" && (
                 <>
-                  <button className={primaryBtn} onClick={() => void act(o.id, "approve")}>Approve</button>
+                  <span className="text-xs text-[#5B7186]">Produce</span>
+                  <input className={inputCls + " w-20"} inputMode="numeric"
+                    value={approveQty[o.id] ?? String(o.qty)}
+                    onChange={(e) => setApproveQty((m) => ({ ...m, [o.id]: e.target.value }))} />
+                  <input className={inputCls + " min-w-[10rem] flex-1"}
+                    placeholder={o.reason === "invoice_shortfall" ? "Note (required to approve below committed qty)" : "Note (optional)"}
+                    value={approveNote[o.id] ?? ""}
+                    onChange={(e) => setApproveNote((m) => ({ ...m, [o.id]: e.target.value }))} />
+                  <button className={primaryBtn} onClick={() => void approve(o)}>Approve</button>
                   <button className={subtleBtn} onClick={() => void act(o.id, "reject")}>Reject</button>
                 </>
               )}

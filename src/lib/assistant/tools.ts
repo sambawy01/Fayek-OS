@@ -908,6 +908,7 @@ async function execProductAdd(args: Record<string, unknown>): Promise<string> {
     active: true,
     reorderPoint: 10,
     reorderQty: 10,
+    leadTimeDays: 14,
     frequentSupply: false,
     createdAt: now,
     updatedAt: now,
