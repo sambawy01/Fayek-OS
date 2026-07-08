@@ -85,6 +85,7 @@ export async function POST(request: NextRequest) {
       en: input.en,
       ar: input.ar,
       priceEgp: input.priceEgp,
+      costEgp: input.costEgp ?? 0,
       photo: input.photo ?? "",
       alt: input.alt ?? { en: "", ar: "" },
       ...(input.usage !== undefined ? { usage: input.usage } : {}),

@@ -28,6 +28,8 @@ export interface Product {
   en: ProductCopy;
   ar: ProductCopy;
   priceEgp: number;
+  /** Unit cost (EGP) — what the item costs us; feeds COGS / gross margin. 0 = unset. */
+  costEgp: number;
   /** Absolute URL (blob upload) or site-relative path ("assets/img/…"). */
   photo: string;
   alt: { en: string; ar: string };
@@ -88,6 +90,7 @@ export const SEED: readonly Product[] = SHOP_PRODUCTS.map((p) => ({
   en: { name: p.nameEn, sub: "", desc: p.descEn },
   ar: { name: p.nameAr, sub: "", desc: p.descEn },
   priceEgp: p.priceEgp,
+  costEgp: 0,
   photo: "",
   alt: { en: p.nameEn, ar: p.nameAr },
   quantity: p.quantity,
@@ -138,7 +141,7 @@ export function toPublicProduct(p: Product): PublicProduct {
 
 interface ProductRow {
   slug: string; name_en: string; sub_en: string; desc_en: string;
-  name_ar: string; sub_ar: string; desc_ar: string; price_egp: number;
+  name_ar: string; sub_ar: string; desc_ar: string; price_egp: number; cost_egp?: number;
   photo: string; alt_en: string; alt_ar: string; quantity: number | null;
   sold_out: boolean; active: boolean; usage_en: string; usage_ar: string;
   reorder_point?: number; reorder_qty?: number; lead_time_days?: number; frequent_supply?: boolean;
@@ -152,6 +155,7 @@ function rowToProduct(r: ProductRow): Product {
     en: { name: r.name_en, sub: r.sub_en, desc: r.desc_en },
     ar: { name: r.name_ar, sub: r.sub_ar, desc: r.desc_ar },
     priceEgp: Number(r.price_egp),
+    costEgp: r.cost_egp === undefined || r.cost_egp === null ? 0 : Number(r.cost_egp),
     photo: r.photo,
     alt: { en: r.alt_en, ar: r.alt_ar },
     quantity: r.quantity === null ? null : Number(r.quantity),
@@ -174,18 +178,18 @@ function upsertQuery(p: Product) {
   const updated = p.updatedAt || new Date().toISOString();
   return db()`
     INSERT INTO products (
-      slug, name_en, sub_en, desc_en, name_ar, sub_ar, desc_ar, price_egp,
+      slug, name_en, sub_en, desc_en, name_ar, sub_ar, desc_ar, price_egp, cost_egp,
       photo, alt_en, alt_ar, quantity, sold_out, active, usage_en, usage_ar,
       created_at, updated_at
     ) VALUES (
-      ${p.slug}, ${p.en.name}, ${p.en.sub}, ${p.en.desc}, ${p.ar.name}, ${p.ar.sub}, ${p.ar.desc}, ${Math.round(p.priceEgp)},
+      ${p.slug}, ${p.en.name}, ${p.en.sub}, ${p.en.desc}, ${p.ar.name}, ${p.ar.sub}, ${p.ar.desc}, ${Math.round(p.priceEgp)}, ${Math.round(p.costEgp ?? 0)},
       ${p.photo}, ${p.alt.en}, ${p.alt.ar}, ${p.quantity}, ${p.soldOut}, ${p.active}, ${usage.en}, ${usage.ar},
       ${created}, ${updated}
     )
     ON CONFLICT (slug) DO UPDATE SET
       name_en=EXCLUDED.name_en, sub_en=EXCLUDED.sub_en, desc_en=EXCLUDED.desc_en,
       name_ar=EXCLUDED.name_ar, sub_ar=EXCLUDED.sub_ar, desc_ar=EXCLUDED.desc_ar,
-      price_egp=EXCLUDED.price_egp, photo=EXCLUDED.photo, alt_en=EXCLUDED.alt_en, alt_ar=EXCLUDED.alt_ar,
+      price_egp=EXCLUDED.price_egp, cost_egp=EXCLUDED.cost_egp, photo=EXCLUDED.photo, alt_en=EXCLUDED.alt_en, alt_ar=EXCLUDED.alt_ar,
       quantity=EXCLUDED.quantity, sold_out=EXCLUDED.sold_out, active=EXCLUDED.active,
       usage_en=EXCLUDED.usage_en, usage_ar=EXCLUDED.usage_ar, updated_at=EXCLUDED.updated_at
   `;

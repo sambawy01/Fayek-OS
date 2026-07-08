@@ -83,6 +83,39 @@ export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 
 export type LedgerDirection = "expense" | "income";
 
+export const PAYMENT_STATUSES = ["paid", "unpaid", "partial"] as const;
+export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
+
+export const RECUR_FREQUENCIES = ["weekly", "monthly", "quarterly", "yearly"] as const;
+export type RecurFrequency = (typeof RECUR_FREQUENCIES)[number];
+
+/** Default Egypt VAT rate (%) — the form pre-fills this; 0 means "no VAT". */
+export const VAT_DEFAULT_PCT = 14;
+
+/** One itemized line on an entry. When present, amountEgp is the gross of Σ(qty×unitPrice)+VAT. */
+export interface LedgerLineItem {
+  description: string;
+  qty: number;
+  unitPriceEgp: number;
+  /** Optional product link (feeds COGS / margin). */
+  slug?: string;
+}
+
+/** Optional links from an entry to other records. */
+export interface LedgerLinks {
+  poId?: number;
+  slug?: string;
+  batchId?: number;
+}
+
+/** Recurrence template — the cron materializes the next entry each period. */
+export interface LedgerRecurring {
+  frequency: RecurFrequency;
+  /** Next date (YYYY-MM-DD) the cron should materialize a child on/after. */
+  nextDate: string;
+  active: boolean;
+}
+
 export interface LedgerEntry {
   id: string;
   /** Calendar date the money moved, YYYY-MM-DD (Cairo). */
@@ -90,6 +123,7 @@ export interface LedgerEntry {
   direction: LedgerDirection;
   /** One of EXPENSE_CATEGORIES (expense) or INCOME_CATEGORIES (income). */
   category: string;
+  /** GROSS cash amount (VAT-inclusive). Net & VAT are DERIVED from taxRatePct. */
   amountEgp: number;
   method: PaymentMethod;
   note: string;
@@ -98,6 +132,77 @@ export interface LedgerEntry {
   createdAt: string;
   /** Always "manual" — the ledger never stores platform-derived income. */
   source: "manual";
+
+  // --- Standard bookkeeping fields (all optional; default on read via helpers) ---
+  /** Payee/supplier (expense) or customer (income). */
+  vendor?: string;
+  /** Invoice / document number. */
+  reference?: string;
+  /** VAT rate (%). amountEgp is gross; VAT portion = gross − gross/(1+rate/100). */
+  taxRatePct?: number;
+  /** paid (default) | unpaid | partial. */
+  paymentStatus?: PaymentStatus;
+  /** Cash actually moved when status = partial. */
+  amountPaidEgp?: number;
+  /** Due date (YYYY-MM-DD) for unpaid/partial. */
+  dueDate?: string | null;
+  lineItems?: LedgerLineItem[];
+  links?: LedgerLinks;
+  /** Project / department attribution tag. */
+  costCenter?: string;
+  /** ISO-4217 code; defaults to EGP. */
+  currency?: string;
+  /** Recurrence template (null/absent = one-off). */
+  recurring?: LedgerRecurring | null;
+  /** Set on entries auto-generated from a recurring template (the template's id). */
+  recurringParentId?: string;
+}
+
+// --- Derived money (default missing fields; centralizes back-compat) -----------
+
+const round2 = (n: number): number => Math.round(n * 100) / 100;
+
+/** VAT portion of the gross amount (0 when no rate set). */
+export function entryVatEgp(e: LedgerEntry): number {
+  const rate = e.taxRatePct ?? 0;
+  if (!(rate > 0)) return 0;
+  return round2(e.amountEgp - e.amountEgp / (1 + rate / 100));
+}
+
+/** Net (pre-VAT) amount. */
+export function entryNetEgp(e: LedgerEntry): number {
+  return round2(e.amountEgp - entryVatEgp(e));
+}
+
+/** Cash actually moved: full when paid (default), 0 when unpaid, amountPaid when partial. */
+export function entryPaidEgp(e: LedgerEntry): number {
+  const status = e.paymentStatus ?? "paid";
+  if (status === "paid") return e.amountEgp;
+  if (status === "unpaid") return 0;
+  return Math.min(e.amountEgp, Math.max(0, e.amountPaidEgp ?? 0));
+}
+
+/** Still-owed portion (0 when fully paid). */
+export function entryOutstandingEgp(e: LedgerEntry): number {
+  return round2(e.amountEgp - entryPaidEgp(e));
+}
+
+/** Advance a YYYY-MM-DD date by one recurrence step (UTC-safe, no argless Date). */
+export function advanceRecurDate(date: string, freq: RecurFrequency): string {
+  const [y, m, d] = date.split("-").map(Number);
+  let year = y, month = m; // 1-based month
+  if (freq === "weekly") {
+    const t = new Date(Date.UTC(y, m - 1, d + 7));
+    return t.toISOString().slice(0, 10);
+  }
+  const add = freq === "monthly" ? 1 : freq === "quarterly" ? 3 : 12;
+  month += add;
+  year += Math.floor((month - 1) / 12);
+  month = ((month - 1) % 12) + 1;
+  // Clamp day to the target month's length (e.g. Jan 31 → Feb 28).
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const day = Math.min(d, lastDay);
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
 /** Valid category set for a direction (used by validation + the executors). */
@@ -305,7 +410,23 @@ export async function listLedger(): Promise<LedgerEntry[]> {
   return [...byId.values()].sort(byDateThenCreated);
 }
 
-export interface NewLedgerEntry {
+/** The optional standard fields, shared by NewLedgerEntry and LedgerPatch. */
+export interface LedgerExtras {
+  vendor?: string;
+  reference?: string;
+  taxRatePct?: number;
+  paymentStatus?: PaymentStatus;
+  amountPaidEgp?: number;
+  dueDate?: string | null;
+  lineItems?: LedgerLineItem[];
+  links?: LedgerLinks;
+  costCenter?: string;
+  currency?: string;
+  recurring?: LedgerRecurring | null;
+  recurringParentId?: string;
+}
+
+export interface NewLedgerEntry extends LedgerExtras {
   date: string;
   direction: LedgerDirection;
   category: string;
@@ -315,6 +436,17 @@ export interface NewLedgerEntry {
   receiptUrl?: string | null;
 }
 
+/** Copy only the defined optional extras from a source onto a target entry. */
+function applyExtras<T extends LedgerExtras>(target: T, src: LedgerExtras): T {
+  for (const k of [
+    "vendor", "reference", "taxRatePct", "paymentStatus", "amountPaidEgp", "dueDate",
+    "lineItems", "links", "costCenter", "currency", "recurring", "recurringParentId",
+  ] as const) {
+    if (src[k] !== undefined) (target as LedgerExtras)[k] = src[k] as never;
+  }
+  return target;
+}
+
 /**
  * Append a manual entry by writing its OWN blob (`finance/entries/<id>.json`).
  * Returns the stored entry with its generated id/createdAt. Because each add
@@ -322,11 +454,15 @@ export interface NewLedgerEntry {
  * (the lost-update bug the old single-document read-modify-write had).
  */
 export async function addLedgerEntry(
-  input: NewLedgerEntry
+  input: NewLedgerEntry,
+  opts?: { id?: string }
 ): Promise<LedgerEntry> {
   const now = new Date().toISOString();
   const entry: LedgerEntry = {
-    id: crypto.randomUUID(),
+    // A caller-supplied stable id (e.g. recurring children) makes a re-create
+    // OVERWRITE the same blob instead of duplicating — closing the window where
+    // Blob's eventually-consistent list() misses a just-written child.
+    id: opts?.id ?? crypto.randomUUID(),
     date: input.date,
     direction: input.direction,
     category: input.category,
@@ -337,6 +473,7 @@ export async function addLedgerEntry(
     createdAt: now,
     source: "manual",
   };
+  applyExtras(entry, input);
   await store.write(entryPathname(entry.id), JSON.stringify(entry, null, 2));
   return entry;
 }
@@ -346,7 +483,21 @@ export type LedgerPatch = Partial<
     LedgerEntry,
     "date" | "direction" | "category" | "amountEgp" | "method" | "note" | "receiptUrl"
   >
->;
+> &
+  LedgerExtras;
+
+/**
+ * Merge a patch onto an entry and normalize the payment amount so an update can
+ * never leave amountPaidEgp above the (possibly newly-lowered) amountEgp — an
+ * impossible over-paid state when a request changes one without the other.
+ */
+function mergePatch(existing: LedgerEntry, patch: LedgerPatch): LedgerEntry {
+  const updated: LedgerEntry = { ...existing, ...patch };
+  if (updated.amountPaidEgp !== undefined) {
+    updated.amountPaidEgp = Math.min(Math.max(0, updated.amountPaidEgp), updated.amountEgp);
+  }
+  return updated;
+}
 
 /**
  * Patch an entry by id. Operates on the single entry blob; an update touches
@@ -361,7 +512,7 @@ export async function updateLedgerEntry(
 ): Promise<LedgerEntry | null> {
   const existing = await readEntryBlob(id);
   if (existing) {
-    const updated: LedgerEntry = { ...existing, ...patch };
+    const updated = mergePatch(existing, patch);
     await store.write(entryPathname(id), JSON.stringify(updated, null, 2));
     return updated;
   }
@@ -373,7 +524,7 @@ export async function updateLedgerEntry(
   const legacy = await readLegacyLedger();
   const index = legacy.findIndex((e) => e.id === id);
   if (index === -1) return null;
-  const updated: LedgerEntry = { ...legacy[index], ...patch };
+  const updated = mergePatch(legacy[index], patch);
   legacy[index] = updated;
   await store.write(LEGACY_LEDGER_PATHNAME, JSON.stringify(legacy, null, 2));
   return updated;

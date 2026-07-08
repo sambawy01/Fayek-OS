@@ -27,14 +27,15 @@ import { renderLetterheadPdf } from "./letterhead-pdf";
 import { sendDocument } from "../telegram";
 import {
   addLedgerEntry,
-  categoriesFor,
-  isValidDateKey,
   EXPENSE_CATEGORIES,
   INCOME_CATEGORIES,
   PAYMENT_METHODS,
+  PAYMENT_STATUSES,
+  RECUR_FREQUENCIES,
   type LedgerDirection,
-  type PaymentMethod,
+  type NewLedgerEntry,
 } from "../finance";
+import { validateLedgerInput } from "@/lib/admin/finance-input";
 import {
   buildPnL,
   pnlToLetterheadBody,
@@ -127,6 +128,53 @@ function tool(
     },
   };
 }
+
+/**
+ * The standard bookkeeping fields shared by log_expense / log_income, so chat
+ * has full parity with the admin form. All optional; validateLedgerInput checks
+ * them the same way for both surfaces.
+ */
+const LEDGER_EXTRA_PARAMS: Record<string, unknown> = {
+  vendor: { type: "string", description: "Payee/supplier (expense) or customer (income)" },
+  reference: { type: "string", description: "Invoice / document number" },
+  taxRatePct: { type: "number", description: "VAT rate % (amount is VAT-inclusive gross; e.g. 14)" },
+  paymentStatus: { type: "string", enum: [...PAYMENT_STATUSES], description: "paid (default), unpaid, or partial" },
+  amountPaidEgp: { type: "number", description: "Amount actually paid (required when paymentStatus is partial)" },
+  dueDate: { type: "string", description: "Due date YYYY-MM-DD (required when unpaid/partial)" },
+  costCenter: { type: "string", description: "Project / department tag" },
+  currency: { type: "string", description: "3-letter ISO code (default EGP)" },
+  links: {
+    type: "object",
+    description: "Optional links to other records",
+    properties: {
+      poId: { type: "number", description: "Purchase order id" },
+      slug: { type: "string", description: "Product slug" },
+      batchId: { type: "number", description: "Batch id" },
+    },
+  },
+  lineItems: {
+    type: "array",
+    description: "Itemized lines; when given, amountEgp should equal the VAT-inclusive gross of these",
+    items: {
+      type: "object",
+      properties: {
+        description: { type: "string" },
+        qty: { type: "number" },
+        unitPriceEgp: { type: "number" },
+        slug: { type: "string", description: "Optional product slug (feeds COGS)" },
+      },
+    },
+  },
+  recurring: {
+    type: "object",
+    description: "Make this a recurring template the finance cron materializes each period",
+    properties: {
+      frequency: { type: "string", enum: [...RECUR_FREQUENCIES] },
+      nextDate: { type: "string", description: "Next occurrence date YYYY-MM-DD" },
+      active: { type: "boolean" },
+    },
+  },
+};
 
 export const TOOLS: OllamaTool[] = [
   tool(
@@ -306,6 +354,7 @@ export const TOOLS: OllamaTool[] = [
         type: "string",
         description: "Date YYYY-MM-DD (omit = today, Cairo)",
       },
+      ...LEDGER_EXTRA_PARAMS,
     },
     ["category", "amountEgp", "method"]
   ),
@@ -329,6 +378,7 @@ export const TOOLS: OllamaTool[] = [
         type: "string",
         description: "Date YYYY-MM-DD (omit = today, Cairo)",
       },
+      ...LEDGER_EXTRA_PARAMS,
     },
     ["category", "amountEgp", "method"]
   ),
@@ -596,9 +646,20 @@ export function validateMutationArgs(
         return { ok: false, error: `parameter "${key}" must be true or false` };
       }
       normalized[key] = value;
+    } else if (declared.type === "array") {
+      // Structured ledger params (lineItems) are validated in depth by the
+      // executor (validateLedgerInput); pass them through rather than refusing
+      // the whole call. Shape-check the top level only.
+      if (!Array.isArray(value)) {
+        return { ok: false, error: `parameter "${key}" must be a list` };
+      }
+      normalized[key] = value;
+    } else if (declared.type === "object") {
+      if (typeof value !== "object" || Array.isArray(value)) {
+        return { ok: false, error: `parameter "${key}" must be an object` };
+      }
+      normalized[key] = value;
     } else {
-      // No other parameter types are declared in TOOLS today; refuse rather
-      // than pass through something the summary cannot faithfully render.
       return { ok: false, error: `parameter "${key}" has an unsupported type` };
     }
   }
@@ -898,6 +959,7 @@ async function execProductAdd(args: Record<string, unknown>): Promise<string> {
     en: { name: nameEn, sub: "", desc: descEn },
     ar: { name: nameAr, sub: "", desc: str("descAr").slice(0, 2000) || descEn },
     priceEgp,
+    costEgp: 0,
     photo: str("imageUrl").slice(0, 500),
     alt: { en: nameEn, ar: nameAr },
     ...(usageEn || usageAr
@@ -1165,38 +1227,23 @@ async function execLogLedger(
   direction: LedgerDirection,
   args: Record<string, unknown>
 ): Promise<string> {
-  const category = String(args.category ?? "").trim();
-  if (!categoriesFor(direction).includes(category)) {
-    return `Invalid ${direction} category "${category}". Use one of: ${categoriesFor(direction).join(", ")}.`;
-  }
-  const amountEgp =
-    typeof args.amountEgp === "number" ? args.amountEgp : Number(args.amountEgp);
-  if (!Number.isFinite(amountEgp) || amountEgp <= 0) {
-    return "Amount must be a positive number of EGP.";
-  }
-  const method = String(args.method ?? "").trim();
-  if (!(PAYMENT_METHODS as readonly string[]).includes(method)) {
-    return `Invalid method "${method}". Use one of: ${PAYMENT_METHODS.join(", ")}.`;
-  }
+  // Default the date to today (Cairo) when omitted, then validate through the
+  // SAME path as the admin form/API so chat gets identical rules and full field
+  // support (vendor, VAT, payment status, line items, links, recurring…).
   const rawDate = typeof args.date === "string" ? args.date.trim() : "";
-  const date = rawDate || cairoDateKey(new Date());
-  if (!isValidDateKey(date)) {
-    return `Invalid date "${rawDate}" — use YYYY-MM-DD.`;
+  const body = { ...args, direction, date: rawDate || cairoDateKey(new Date()) };
+  const result = validateLedgerInput(body, "create");
+  if (!result.ok) {
+    const msgs = Object.entries(result.fields).map(([k, v]) => `${k}: ${v}`);
+    return `Couldn't log that — ${msgs.join("; ")}.`;
   }
-  const note = typeof args.note === "string" ? args.note.trim().slice(0, 1000) : "";
 
-  const entry = await addLedgerEntry({
-    date,
-    direction,
-    category,
-    amountEgp: Math.round(amountEgp * 100) / 100,
-    method: method as PaymentMethod,
-    note,
-  });
+  const entry = await addLedgerEntry(result.value as NewLedgerEntry);
   const verb = direction === "expense" ? "Expense" : "Income";
-  return `${verb} logged: ${entry.amountEgp} EGP · ${category} · ${method} · ${date}${
-    note ? ` — ${note}` : ""
-  }. (Private — clients never see your books.)`;
+  const status = entry.paymentStatus && entry.paymentStatus !== "paid" ? ` · ${entry.paymentStatus}` : "";
+  return `${verb} logged: ${entry.amountEgp} EGP · ${entry.category} · ${entry.method} · ${entry.date}${status}${
+    entry.vendor ? ` · ${entry.vendor}` : ""
+  }${entry.note ? ` — ${entry.note}` : ""}. (Private — clients never see your books.)`;
 }
 
 /** Resolve a {period, from, to} arg bundle into a concrete P&L period. */

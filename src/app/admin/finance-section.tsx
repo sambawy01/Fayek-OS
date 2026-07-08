@@ -103,56 +103,101 @@ const dangerBtn = `${buttonBase} border border-[#CC4038]/30 bg-[#F4F8FD] text-[#
 /* ---------- summary cards ---------- */
 
 function SummaryCards({ pnl }: { pnl: PnL }) {
+  const netCls = (n: number) =>
+    n >= 0 ? "bg-[#1668C7]/10 border-[#1668C7]/25 text-[#1668C7]" : "bg-[#CC4038]/10 border-[#CC4038]/25 text-[#CC4038]";
   const cards = [
+    {
+      label: "Gross profit",
+      value: egp(pnl.grossProfitEgp),
+      cls: "bg-[#357F75]/10 border-[#357F75]/25 text-[#357F75]",
+      sub: [`Invoiced ${egp(pnl.invoicedRevenueEgp)}`, `COGS ${egp(pnl.cogsEgp)}`],
+    },
     {
       label: "Revenue",
       value: egp(pnl.revenue.totalEgp),
       cls: "bg-[#5B7186]/10 border-[#5B7186]/25 text-[#3B5578]",
-      sub: [
-        `Sales settled ${egp(pnl.revenue.shopEgp)}`,
-        `Other ${egp(pnl.revenue.manualIncomeEgp)}`,
-      ],
+      sub: [`Sales settled ${egp(pnl.revenue.shopEgp)}`, `Other ${egp(pnl.revenue.manualIncomeEgp)}`],
     },
     {
       label: "Expenses",
       value: egp(pnl.expenses.totalEgp),
       cls: "bg-[#CC4038]/10 border-[#CC4038]/25 text-[#CC4038]",
-      sub: pnl.expenses.byCategory
-        .slice(0, 3)
-        .map((c) => `${labelCategory(c.category)} ${egp(c.amountEgp)}`),
+      sub: pnl.expenses.byCategory.slice(0, 3).map((c) => `${labelCategory(c.category)} ${egp(c.amountEgp)}`),
     },
     {
-      label: pnl.netEgp >= 0 ? "Net profit" : "Net loss",
-      value: egp(Math.abs(pnl.netEgp)),
-      cls:
-        pnl.netEgp >= 0
-          ? "bg-[#1668C7]/10 border-[#1668C7]/25 text-[#1668C7]"
-          : "bg-[#CC4038]/10 border-[#CC4038]/25 text-[#CC4038]",
-      sub: [`${pnl.counts.revenueOrders} payments received`],
+      label: pnl.netAccrualEgp >= 0 ? "Net profit" : "Net loss",
+      value: egp(Math.abs(pnl.netAccrualEgp)),
+      cls: netCls(pnl.netAccrualEgp),
+      sub: [`Cash basis ${egp(pnl.netCashEgp)}`, `${pnl.counts.revenueOrders} payments received`],
     },
   ];
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-      {cards.map((card) => (
-        <div key={card.label} className={`rounded-2xl border px-4 py-4 ${card.cls}`}>
-          <p className="text-xs font-medium uppercase tracking-[0.1em] opacity-80">
-            {card.label}
-          </p>
-          <p className="mt-1 font-serif text-2xl">{card.value}</p>
-          <div className="mt-2 space-y-0.5">
-            {card.sub.map((s) => (
-              <p key={s} className="text-xs opacity-80">
-                {s}
-              </p>
-            ))}
+    <div className="space-y-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {cards.map((card) => (
+          <div key={card.label} className={`rounded-2xl border px-4 py-4 ${card.cls}`}>
+            <p className="text-xs font-medium uppercase tracking-[0.1em] opacity-80">{card.label}</p>
+            <p className="mt-1 font-serif text-2xl">{card.value}</p>
+            <div className="mt-2 space-y-0.5">
+              {card.sub.map((s) => (
+                <p key={s} className="text-xs opacity-80">{s}</p>
+              ))}
+            </div>
           </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+        <div className="rounded-xl border border-[#0E2A47]/10 bg-[#F4F8FD] px-3 py-2">
+          <p className="text-xs uppercase tracking-[0.06em] text-[#5B7186]">Net VAT</p>
+          <p className="font-medium text-[#0E2A47]">{egp(pnl.vat.netEgp)}</p>
         </div>
-      ))}
+        <div className="rounded-xl border border-[#0E2A47]/10 bg-[#F4F8FD] px-3 py-2">
+          <p className="text-xs uppercase tracking-[0.06em] text-[#5B7186]">Input VAT</p>
+          <p className="font-medium text-[#0E2A47]">{egp(pnl.vat.inputEgp)}</p>
+        </div>
+        <div className="rounded-xl border border-[#0E2A47]/10 bg-[#F4F8FD] px-3 py-2">
+          <p className="text-xs uppercase tracking-[0.06em] text-[#5B7186]">Output VAT</p>
+          <p className="font-medium text-[#0E2A47]">{egp(pnl.vat.outputEgp)}</p>
+        </div>
+        <div className="rounded-xl border border-[#D6941F]/25 bg-[#D6941F]/10 px-3 py-2">
+          <p className="text-xs uppercase tracking-[0.06em] text-[#8A5A12]">Payables owed</p>
+          <p className="font-medium text-[#8A5A12]">{egp(pnl.payables.totalEgp)}</p>
+        </div>
+      </div>
     </div>
   );
 }
 
 /* ---------- entry form (add / edit) ---------- */
+
+const PAYMENT_STATUSES = ["paid", "unpaid", "partial"] as const;
+const RECUR_FREQUENCIES = ["weekly", "monthly", "quarterly", "yearly"] as const;
+
+/**
+ * Advance a YYYY-MM-DD date by one recurrence step (mirrors
+ * finance.advanceRecurDate — kept local because @/lib/finance pulls in the Blob
+ * SDK). The entry's own date is occurrence #1 (the saved row), so the template's
+ * nextDate must be the NEXT period, or the cron would materialize a duplicate of
+ * the first occurrence and double-count it in the P&L.
+ */
+function advanceRecurDate(date: string, freq: (typeof RECUR_FREQUENCIES)[number]): string {
+  const [y, m, d] = date.split("-").map(Number);
+  if (freq === "weekly") return new Date(Date.UTC(y, m - 1, d + 7)).toISOString().slice(0, 10);
+  const add = freq === "monthly" ? 1 : freq === "quarterly" ? 3 : 12;
+  let month = m + add;
+  const year = y + Math.floor((month - 1) / 12);
+  month = ((month - 1) % 12) + 1;
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const day = Math.min(d, lastDay);
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+interface LineItemForm {
+  description: string;
+  qty: string;
+  unitPriceEgp: string;
+  slug: string;
+}
 
 interface FormState {
   date: string;
@@ -162,9 +207,44 @@ interface FormState {
   method: string;
   note: string;
   receiptUrl: string;
+  // Standard bookkeeping fields.
+  vendor: string;
+  reference: string;
+  taxRatePct: string;
+  taxExclusive: boolean; // when true, the entered amount is NET; VAT adds on top
+  paymentStatus: (typeof PAYMENT_STATUSES)[number];
+  amountPaidEgp: string;
+  dueDate: string;
+  costCenter: string;
+  currency: string;
+  lineItems: LineItemForm[];
+  linkPoId: string;
+  linkSlug: string;
+  linkBatchId: string;
+  recurringOn: boolean;
+  recurringFreq: (typeof RECUR_FREQUENCIES)[number];
 }
 
 function toFormState(entry: LedgerEntry | null, month: string): FormState {
+  const base = {
+    vendor: entry?.vendor ?? "",
+    reference: entry?.reference ?? "",
+    taxRatePct: entry?.taxRatePct !== undefined ? String(entry.taxRatePct) : "0",
+    taxExclusive: false,
+    paymentStatus: (entry?.paymentStatus ?? "paid") as (typeof PAYMENT_STATUSES)[number],
+    amountPaidEgp: entry?.amountPaidEgp !== undefined ? String(entry.amountPaidEgp) : "",
+    dueDate: entry?.dueDate ?? "",
+    costCenter: entry?.costCenter ?? "",
+    currency: entry?.currency ?? "EGP",
+    lineItems: (entry?.lineItems ?? []).map((l) => ({
+      description: l.description, qty: String(l.qty), unitPriceEgp: String(l.unitPriceEgp), slug: l.slug ?? "",
+    })),
+    linkPoId: entry?.links?.poId !== undefined ? String(entry.links.poId) : "",
+    linkSlug: entry?.links?.slug ?? "",
+    linkBatchId: entry?.links?.batchId !== undefined ? String(entry.links.batchId) : "",
+    recurringOn: Boolean(entry?.recurring?.active),
+    recurringFreq: (entry?.recurring?.frequency ?? "monthly") as (typeof RECUR_FREQUENCIES)[number],
+  };
   if (entry) {
     return {
       date: entry.date,
@@ -174,6 +254,7 @@ function toFormState(entry: LedgerEntry | null, month: string): FormState {
       method: entry.method,
       note: entry.note,
       receiptUrl: entry.receiptUrl ?? "",
+      ...base,
     };
   }
   // Default new-entry date: today if it falls in the selected month, else the
@@ -192,7 +273,31 @@ function toFormState(entry: LedgerEntry | null, month: string): FormState {
     method: "cash",
     note: "",
     receiptUrl: "",
+    ...base,
   };
+}
+
+/** Gross/net/VAT from a form: line-item subtotal (if any) or the entered amount, with the VAT rate. */
+function deriveMoney(form: FormState): { subtotal: number; vat: number; gross: number } {
+  const rate = Math.max(0, Number(form.taxRatePct) || 0);
+  const hasLines = form.lineItems.length > 0;
+  let netOrEntered: number;
+  if (hasLines) {
+    netOrEntered = form.lineItems.reduce((s, l) => s + (Number(l.qty) || 0) * (Number(l.unitPriceEgp) || 0), 0);
+  } else {
+    netOrEntered = Number(form.amountEgp) || 0;
+  }
+  // Line items and the "excludes VAT" toggle both mean the figure is NET.
+  const isNet = hasLines || form.taxExclusive;
+  let subtotal: number, gross: number;
+  if (isNet) {
+    subtotal = netOrEntered;
+    gross = Math.round(subtotal * (1 + rate / 100) * 100) / 100;
+  } else {
+    gross = netOrEntered;
+    subtotal = Math.round((gross / (1 + rate / 100)) * 100) / 100;
+  }
+  return { subtotal, vat: Math.round((gross - subtotal) * 100) / 100, gross };
 }
 
 function EntryForm({
@@ -216,6 +321,15 @@ function EntryForm({
 
   const set = (patch: Partial<FormState>) =>
     setForm((f) => ({ ...f, ...patch }));
+
+  const money = deriveMoney(form);
+  const hasLines = form.lineItems.length > 0;
+  const addLine = () =>
+    set({ lineItems: [...form.lineItems, { description: "", qty: "1", unitPriceEgp: "", slug: "" }] });
+  const updLine = (i: number, patch: Partial<LineItemForm>) =>
+    set({ lineItems: form.lineItems.map((l, idx) => (idx === i ? { ...l, ...patch } : l)) });
+  const rmLine = (i: number) =>
+    set({ lineItems: form.lineItems.filter((_, idx) => idx !== i) });
 
   function changeDirection(direction: LedgerDirection) {
     // Keep the chosen category valid for the new direction.
@@ -261,20 +375,55 @@ function EntryForm({
 
   async function submit() {
     setError(null);
-    const amount = Number(form.amountEgp);
-    if (!form.amountEgp.trim() || !Number.isFinite(amount) || amount <= 0) {
-      setError("Amount must be a positive number.");
+    const money = deriveMoney(form);
+    if (!(money.gross > 0)) {
+      setError(form.lineItems.length ? "Line items must total a positive amount." : "Amount must be a positive number.");
+      return;
+    }
+    if (form.paymentStatus === "partial") {
+      const paid = Number(form.amountPaidEgp);
+      if (!Number.isFinite(paid) || paid <= 0 || paid > money.gross) {
+        setError("For a partial payment, enter an amount paid between 0 and the total.");
+        return;
+      }
+    }
+    if ((form.paymentStatus === "unpaid" || form.paymentStatus === "partial") && !form.dueDate) {
+      setError("Unpaid / partial entries need a due date.");
       return;
     }
 
-    const body = {
+    const rate = Math.max(0, Number(form.taxRatePct) || 0);
+    const links: Record<string, number | string> = {};
+    if (form.linkPoId.trim()) links.poId = Number(form.linkPoId);
+    if (form.linkBatchId.trim()) links.batchId = Number(form.linkBatchId);
+    if (form.linkSlug.trim()) links.slug = form.linkSlug.trim();
+
+    const body: Record<string, unknown> = {
       date: form.date,
       direction: form.direction,
       category: form.category,
-      amountEgp: amount,
+      amountEgp: money.gross, // always gross cash
       method: form.method,
       note: form.note.trim(),
       receiptUrl: form.receiptUrl.trim() || null,
+      vendor: form.vendor.trim(),
+      reference: form.reference.trim(),
+      taxRatePct: rate,
+      paymentStatus: form.paymentStatus,
+      costCenter: form.costCenter.trim(),
+      currency: form.currency.trim().toUpperCase() || "EGP",
+      dueDate: form.dueDate || null,
+      ...(form.paymentStatus === "partial" ? { amountPaidEgp: Number(form.amountPaidEgp) } : {}),
+      ...(form.lineItems.length
+        ? { lineItems: form.lineItems.map((l) => ({
+            description: l.description.trim(), qty: Number(l.qty), unitPriceEgp: Number(l.unitPriceEgp),
+            ...(l.slug.trim() ? { slug: l.slug.trim() } : {}),
+          })) }
+        : {}),
+      ...(Object.keys(links).length ? { links } : {}),
+      recurring: form.recurringOn
+        ? { frequency: form.recurringFreq, nextDate: advanceRecurDate(form.date, form.recurringFreq), active: true }
+        : null,
     };
 
     setBusy(true);
@@ -336,12 +485,13 @@ function EntryForm({
           </select>
         </div>
         <div>
-          <label className={labelCls}>Amount (EGP)</label>
+          <label className={labelCls}>Amount (EGP) {hasLines && <span className="font-normal text-[#5B7186]">— from line items</span>}</label>
           <input
             className={inputCls}
             inputMode="decimal"
-            value={form.amountEgp}
+            value={hasLines ? String(money.subtotal) : form.amountEgp}
             placeholder="0"
+            disabled={hasLines}
             onChange={(e) => set({ amountEgp: e.target.value })}
           />
         </div>
@@ -377,6 +527,112 @@ function EntryForm({
             onChange={(e) => set({ note: e.target.value })}
           />
         </div>
+      </div>
+
+      {/* Counterparty + reference */}
+      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div>
+          <label className={labelCls}>{form.direction === "expense" ? "Vendor / payee" : "Customer"} (optional)</label>
+          <input className={inputCls} value={form.vendor} placeholder="e.g. Onmacabim Ltd" onChange={(e) => set({ vendor: e.target.value })} />
+        </div>
+        <div>
+          <label className={labelCls}>Reference / invoice no. (optional)</label>
+          <input className={inputCls} value={form.reference} placeholder="e.g. INV-2043" onChange={(e) => set({ reference: e.target.value })} />
+        </div>
+      </div>
+
+      {/* VAT */}
+      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div>
+          <label className={labelCls}>VAT rate (%)</label>
+          <input className={inputCls} inputMode="decimal" value={form.taxRatePct} onChange={(e) => set({ taxRatePct: e.target.value })} />
+        </div>
+        <div className="flex items-end">
+          <label className="flex items-center gap-2 text-sm text-[#0E2A47]">
+            <input type="checkbox" checked={form.taxExclusive} disabled={hasLines} onChange={(e) => set({ taxExclusive: e.target.checked })} />
+            Amount excludes VAT (add it on top)
+          </label>
+        </div>
+      </div>
+      <p className="mt-2 text-xs text-[#5B7186]">
+        Net {egp(money.subtotal)} · VAT {egp(money.vat)} · <span className="font-medium text-[#0E2A47]">Gross {egp(money.gross)}</span>
+      </p>
+
+      {/* Payment status */}
+      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div>
+          <label className={labelCls}>Payment status</label>
+          <select className={inputCls} value={form.paymentStatus} onChange={(e) => set({ paymentStatus: e.target.value as FormState["paymentStatus"] })}>
+            {PAYMENT_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+        {form.paymentStatus === "partial" && (
+          <div>
+            <label className={labelCls}>Amount paid (EGP)</label>
+            <input className={inputCls} inputMode="decimal" value={form.amountPaidEgp} onChange={(e) => set({ amountPaidEgp: e.target.value })} />
+          </div>
+        )}
+        {(form.paymentStatus === "unpaid" || form.paymentStatus === "partial") && (
+          <div>
+            <label className={labelCls}>Due date</label>
+            <input className={inputCls} type="date" value={form.dueDate} onChange={(e) => set({ dueDate: e.target.value })} />
+          </div>
+        )}
+      </div>
+
+      {/* Line items */}
+      <div className="mt-4">
+        <div className="mb-1 flex items-center justify-between">
+          <label className={labelCls + " mb-0"}>Line items (optional)</label>
+          <button type="button" onClick={addLine} className="text-xs font-medium text-[#1668C7] underline">+ add line</button>
+        </div>
+        {form.lineItems.map((l, i) => (
+          <div key={i} className="mb-2 grid grid-cols-1 gap-2 sm:grid-cols-[1fr_5rem_7rem_8rem_auto]">
+            <input className={inputCls} placeholder="Description" value={l.description} onChange={(e) => updLine(i, { description: e.target.value })} />
+            <input className={inputCls} inputMode="decimal" placeholder="Qty" value={l.qty} onChange={(e) => updLine(i, { qty: e.target.value })} />
+            <input className={inputCls} inputMode="decimal" placeholder="Unit EGP" value={l.unitPriceEgp} onChange={(e) => updLine(i, { unitPriceEgp: e.target.value })} />
+            <input className={inputCls} placeholder="Product slug" value={l.slug} onChange={(e) => updLine(i, { slug: e.target.value })} />
+            <button type="button" onClick={() => rmLine(i)} className="text-sm text-[#CC4038]">✕</button>
+          </div>
+        ))}
+      </div>
+
+      {/* Links + tags */}
+      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div>
+          <label className={labelCls}>Link PO id (optional)</label>
+          <input className={inputCls} inputMode="numeric" value={form.linkPoId} onChange={(e) => set({ linkPoId: e.target.value })} />
+        </div>
+        <div>
+          <label className={labelCls}>Link batch id (optional)</label>
+          <input className={inputCls} inputMode="numeric" value={form.linkBatchId} onChange={(e) => set({ linkBatchId: e.target.value })} />
+        </div>
+        <div>
+          <label className={labelCls}>Cost center / project (optional)</label>
+          <input className={inputCls} value={form.costCenter} onChange={(e) => set({ costCenter: e.target.value })} />
+        </div>
+      </div>
+
+      {/* Currency + recurring */}
+      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div>
+          <label className={labelCls}>Currency</label>
+          <input className={inputCls} value={form.currency} maxLength={3} onChange={(e) => set({ currency: e.target.value.toUpperCase() })} />
+        </div>
+        <div className="flex items-end">
+          <label className="flex items-center gap-2 text-sm text-[#0E2A47]">
+            <input type="checkbox" checked={form.recurringOn} onChange={(e) => set({ recurringOn: e.target.checked })} />
+            Recurring
+          </label>
+        </div>
+        {form.recurringOn && (
+          <div>
+            <label className={labelCls}>Frequency</label>
+            <select className={inputCls} value={form.recurringFreq} onChange={(e) => set({ recurringFreq: e.target.value as FormState["recurringFreq"] })}>
+              {RECUR_FREQUENCIES.map((f) => <option key={f} value={f}>{f}</option>)}
+            </select>
+          </div>
+        )}
       </div>
 
       <div className="mt-4">
@@ -500,7 +756,25 @@ function EntryRow({
             <span className="text-xs text-[#5B7186]">
               {entry.date} · {labelMethod(entry.method)}
             </span>
+            {entry.paymentStatus && entry.paymentStatus !== "paid" && (
+              <span className="inline-block rounded-full bg-[#D6941F]/15 px-2 py-0.5 text-[11px] font-medium text-[#8A5A12]">
+                {entry.paymentStatus}{entry.dueDate ? ` · due ${entry.dueDate}` : ""}
+              </span>
+            )}
+            {entry.recurring?.active && (
+              <span className="inline-block rounded-full bg-[#357F75]/15 px-2 py-0.5 text-[11px] font-medium text-[#357F75]">
+                ↻ {entry.recurring.frequency}
+              </span>
+            )}
+            {(entry.taxRatePct ?? 0) > 0 && (
+              <span className="text-[11px] text-[#5B7186]">VAT {entry.taxRatePct}%</span>
+            )}
           </div>
+          {(entry.vendor || entry.reference) && (
+            <p className="mt-0.5 truncate text-xs text-[#5B7186]">
+              {entry.vendor}{entry.vendor && entry.reference ? " · " : ""}{entry.reference ? `#${entry.reference}` : ""}
+            </p>
+          )}
           {entry.note && (
             <p className="mt-0.5 truncate text-sm text-[#5B7186]">{entry.note}</p>
           )}

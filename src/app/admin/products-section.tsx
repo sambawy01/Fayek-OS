@@ -97,6 +97,7 @@ interface FormState {
   arDesc: string;
   arUsage: string;
   priceEgp: string;
+  costEgp: string;
   quantity: string; // "" = untracked
   photo: string;
   altEn: string;
@@ -115,6 +116,7 @@ function toFormState(p: Product | null): FormState {
     arDesc: p?.ar.desc ?? "",
     arUsage: p?.usage?.ar ?? "",
     priceEgp: p ? String(p.priceEgp) : "",
+    costEgp: p ? String(p.costEgp ?? 0) : "",
     quantity: p && p.quantity !== null ? String(p.quantity) : "",
     photo: p?.photo ?? "",
     altEn: p?.alt.en ?? "",
@@ -187,6 +189,11 @@ function ProductForm({
       setError("Price (EGP) must be a whole number.");
       return;
     }
+    const costEgp = form.costEgp.trim() === "" ? 0 : Number(form.costEgp);
+    if (!Number.isInteger(costEgp) || costEgp < 0) {
+      setError("Cost (EGP) must be a whole number (or empty for 0).");
+      return;
+    }
     let quantity: number | null = null;
     if (form.quantity.trim() !== "") {
       quantity = Number(form.quantity);
@@ -203,6 +210,7 @@ function ProductForm({
       ar: { name: arName, sub: form.arSub.trim(), desc: form.arDesc.trim() || form.enDesc.trim() },
       usage: { en: form.enUsage.trim(), ar: form.arUsage.trim() },
       priceEgp,
+      costEgp,
       quantity,
       photo: form.photo.trim(),
       alt: { en: form.altEn.trim(), ar: form.altAr.trim() || arName },
@@ -300,6 +308,10 @@ function ProductForm({
         <div>
           <label className={labelCls}>Price (EGP)</label>
           <input className={inputCls} inputMode="numeric" value={form.priceEgp} onChange={(e) => set({ priceEgp: e.target.value })} />
+        </div>
+        <div>
+          <label className={labelCls}>Cost (EGP) <span className="font-normal text-[#5B7186]">— unit cost for margin/COGS</span></label>
+          <input className={inputCls} inputMode="numeric" value={form.costEgp} onChange={(e) => set({ costEgp: e.target.value })} />
         </div>
         <div>
           <label className={labelCls}>Quantity {product ? "(locked)" : "(empty = untracked)"}</label>

@@ -24,6 +24,7 @@ function isStockOnly(v: ProductInput): boolean {
     v.en === undefined &&
     v.ar === undefined &&
     v.priceEgp === undefined &&
+    v.costEgp === undefined &&
     v.photo === undefined &&
     v.alt === undefined &&
     v.usage === undefined

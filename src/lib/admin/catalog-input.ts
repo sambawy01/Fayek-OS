@@ -22,6 +22,7 @@ export interface ProductInput {
   en?: ProductCopy;
   ar?: ProductCopy;
   priceEgp?: number;
+  costEgp?: number;
   photo?: string;
   alt?: { en: string; ar: string };
   /** Manufacturer usage directions; both empty strings = none. */
@@ -67,7 +68,7 @@ function validateCopy(
 
 function validatePrice(
   raw: unknown,
-  key: "priceEgp",
+  key: "priceEgp" | "costEgp",
   required: boolean,
   fields: Record<string, string>
 ): number | undefined {
@@ -121,6 +122,9 @@ export function validateProductInput(
 
   const priceEgp = validatePrice(b.priceEgp, "priceEgp", create, fields);
   if (priceEgp !== undefined) value.priceEgp = priceEgp;
+
+  const costEgp = validatePrice(b.costEgp, "costEgp", false, fields);
+  if (costEgp !== undefined) value.costEgp = costEgp;
 
   const photo = validatePhoto(b.photo, fields);
   if (photo !== undefined) value.photo = photo;
@@ -183,6 +187,7 @@ export function applyProductInput(product: Product, input: ProductInput): Produc
     ...(input.en !== undefined ? { en: input.en } : {}),
     ...(input.ar !== undefined ? { ar: input.ar } : {}),
     ...(input.priceEgp !== undefined ? { priceEgp: input.priceEgp } : {}),
+    ...(input.costEgp !== undefined ? { costEgp: input.costEgp } : {}),
     ...(input.photo !== undefined ? { photo: input.photo } : {}),
     ...(input.alt !== undefined ? { alt: input.alt } : {}),
     ...(input.usage !== undefined ? { usage: input.usage } : {}),

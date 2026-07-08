@@ -217,6 +217,44 @@ export async function paymentsBetween(fromKey: string, toKey: string): Promise<{
   return { totalEgp: Number(rows[0]?.total ?? 0), count: Number(rows[0]?.n ?? 0) };
 }
 
+/**
+ * Cost of goods for orders INVOICED in the period — Σ(line qty × product cost).
+ * Matched on the receivable's creation date (the invoice date), joined via
+ * purchase_orders.receivable_id. Excludes cancelled POs; untracked/zero-cost
+ * items contribute 0. Pairs with paymentsBetween to give a gross-profit line.
+ */
+export async function cogsBetween(fromKey: string, toKey: string): Promise<number> {
+  const rows = (await db()`
+    SELECT COALESCE(SUM(l.qty::bigint * p.cost_egp::bigint), 0)::bigint AS cogs
+    FROM purchase_orders po
+    JOIN receivables r ON r.id = po.receivable_id
+    JOIN purchase_order_lines l ON l.po_id = po.id
+    JOIN products p ON p.slug = l.slug
+    WHERE po.status <> 'cancelled'
+      AND (r.created_at AT TIME ZONE 'Africa/Cairo')::date BETWEEN ${fromKey}::date AND ${toKey}::date
+  `) as { cogs: number | string }[];
+  return Number(rows[0]?.cogs ?? 0);
+}
+
+/**
+ * Invoiced (accrual) sales revenue for the period — Σ receivable totals whose
+ * invoice was CREATED in range. This is the correct partner for cogsBetween:
+ * both legs are recognized on the same invoice-date basis, so gross profit
+ * (invoiced revenue − COGS) matches like-for-like. (Distinct from paymentsBetween,
+ * which is cash settlements by payment date — the right basis for cash flow, not
+ * margin.) NOTE: shop sales carry no separate VAT field, so this total is
+ * VAT-inclusive; gross profit is therefore on gross invoiced sales.
+ */
+export async function invoicedRevenueBetween(fromKey: string, toKey: string): Promise<number> {
+  const rows = (await db()`
+    SELECT COALESCE(SUM(total_egp::bigint), 0)::bigint AS total
+    FROM receivables
+    WHERE status <> 'void'
+      AND (created_at AT TIME ZONE 'Africa/Cairo')::date BETWEEN ${fromKey}::date AND ${toKey}::date
+  `) as { total: number | string }[];
+  return Number(rows[0]?.total ?? 0);
+}
+
 /** Total outstanding across open receivables (for reports/finance). */
 export async function totalOutstanding(): Promise<number> {
   const rows = (await db()`

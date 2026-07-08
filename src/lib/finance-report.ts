@@ -1,5 +1,9 @@
-import { paymentsBetween } from "./receivables";
+import { paymentsBetween, cogsBetween, invoicedRevenueBetween } from "./receivables";
 import {
+  entryNetEgp,
+  entryOutstandingEgp,
+  entryPaidEgp,
+  entryVatEgp,
   filterByPeriod,
   listLedger,
   sumAmount,
@@ -200,6 +204,32 @@ export interface PnL {
     totalEgp: number;
     byCategory: CategoryLine[];
   };
+  /** Invoiced (accrual) sales in range, COGS for the same, and gross profit (invoiced − COGS). */
+  invoicedRevenueEgp: number;
+  cogsEgp: number;
+  grossProfitEgp: number;
+  /** VAT split: input (on expenses, reclaimable) vs output (on income, owed); net = output − input. */
+  vat: {
+    inputEgp: number;
+    outputEgp: number;
+    netEgp: number;
+  };
+  /** Cash-basis view: only money actually moved (paid portion of manual entries + settlements). */
+  cash: {
+    revenueEgp: number;
+    expensesEgp: number;
+    netEgp: number;
+  };
+  /** Accrual net (revenue − all in-range expenses by date). Same figure as `netEgp`. */
+  netAccrualEgp: number;
+  /** Cash net (= cash.netEgp). */
+  netCashEgp: number;
+  /** Unpaid/partial expenses still owed, with due dates. */
+  payables: {
+    totalEgp: number;
+    entries: LedgerEntry[];
+  };
+  /** Accrual net — kept for back-compat (equals netAccrualEgp). */
   netEgp: number;
   counts: {
     revenueOrders: number;
@@ -218,6 +248,10 @@ export interface PnLInputs {
   /** Sales revenue = settlements (payments) received in the period. */
   salesEgp: number;
   salesCount: number;
+  /** Invoiced sales revenue (accrual, by invoice date) for the period (0 if unavailable). */
+  invoicedRevenueEgp?: number;
+  /** Cost of goods for orders invoiced in the period (0 if unavailable). */
+  cogsEgp?: number;
   ledger: LedgerEntry[];
   failures?: string[];
   now?: Date;
@@ -242,13 +276,35 @@ export function computePnL(period: PnLPeriod, inputs: PnLInputs): PnL {
   });
   const incomeEntries = inRangeEntries.filter((e) => e.direction === "income");
   const expenseEntries = inRangeEntries.filter((e) => e.direction === "expense");
-  const manualIncomeEgp = sumAmount(incomeEntries);
-  const manualIncomeByCategory = sumByCategory(incomeEntries);
-  const expenseTotalEgp = sumAmount(expenseEntries);
-  const expenseByCategory = sumByCategory(expenseEntries);
+  const manualIncomeEgp = round2(sumAmount(incomeEntries));
+  const manualIncomeByCategory = sumByCategory(incomeEntries).map((c) => ({ ...c, amountEgp: round2(c.amountEgp) }));
+  const expenseTotalEgp = round2(sumAmount(expenseEntries));
+  const expenseByCategory = sumByCategory(expenseEntries).map((c) => ({ ...c, amountEgp: round2(c.amountEgp) }));
 
-  const totalRevenue = shopEgp + manualIncomeEgp;
-  const netEgp = totalRevenue - expenseTotalEgp;
+  const totalRevenue = round2(shopEgp + manualIncomeEgp);
+  // Accrual net: every in-range entry counts in full by its date (current model).
+  const netAccrualEgp = round2(totalRevenue - expenseTotalEgp);
+
+  // Gross profit on a single invoice-date basis: invoiced sales − COGS of the
+  // same invoiced orders (NOT cash settlements, which would mismatch the basis).
+  const invoicedRevenueEgp = inputs.invoicedRevenueEgp ?? 0;
+  const cogsEgp = inputs.cogsEgp ?? 0;
+  const grossProfitEgp = round2(invoicedRevenueEgp - cogsEgp);
+
+  // VAT split — input (reclaimable, on expenses) vs output (owed, on income).
+  const inputVatEgp = round2(expenseEntries.reduce((s, e) => s + entryVatEgp(e), 0));
+  const outputVatEgp = round2(incomeEntries.reduce((s, e) => s + entryVatEgp(e), 0));
+
+  // Cash basis: only money that actually moved. Shop revenue is already cash
+  // (settlements); manual entries contribute their PAID portion only.
+  const cashIncomeEgp = incomeEntries.reduce((s, e) => s + entryPaidEgp(e), 0);
+  const cashRevenueEgp = round2(shopEgp + cashIncomeEgp);
+  const cashExpensesEgp = round2(expenseEntries.reduce((s, e) => s + entryPaidEgp(e), 0));
+  const netCashEgp = round2(cashRevenueEgp - cashExpensesEgp);
+
+  // Payables: unpaid/partial expenses still owed.
+  const payableEntries = expenseEntries.filter((e) => entryOutstandingEgp(e) > 0);
+  const payablesTotalEgp = round2(payableEntries.reduce((s, e) => s + entryOutstandingEgp(e), 0));
 
   return {
     period,
@@ -262,7 +318,26 @@ export function computePnL(period: PnLPeriod, inputs: PnLInputs): PnL {
       totalEgp: expenseTotalEgp,
       byCategory: expenseByCategory,
     },
-    netEgp,
+    invoicedRevenueEgp,
+    cogsEgp,
+    grossProfitEgp,
+    vat: {
+      inputEgp: inputVatEgp,
+      outputEgp: outputVatEgp,
+      netEgp: round2(outputVatEgp - inputVatEgp),
+    },
+    cash: {
+      revenueEgp: cashRevenueEgp,
+      expensesEgp: cashExpensesEgp,
+      netEgp: netCashEgp,
+    },
+    netAccrualEgp,
+    netCashEgp,
+    payables: {
+      totalEgp: payablesTotalEgp,
+      entries: payableEntries.slice().sort((a, b) => (a.dueDate ?? "").localeCompare(b.dueDate ?? "")),
+    },
+    netEgp: netAccrualEgp,
     counts: {
       revenueOrders: revenueOrderCount,
       ledgerEntries: inRangeEntries.length,
@@ -273,15 +348,21 @@ export function computePnL(period: PnLPeriod, inputs: PnLInputs): PnL {
   };
 }
 
+const round2 = (n: number): number => Math.round(n * 100) / 100;
+
 // --- Live gather --------------------------------------------------------------
 
 export interface PnLDataSources {
   paymentsBetween: typeof paymentsBetween;
+  cogsBetween: typeof cogsBetween;
+  invoicedRevenueBetween: typeof invoicedRevenueBetween;
   listLedger: typeof listLedger;
 }
 
 const liveSources: PnLDataSources = {
   paymentsBetween,
+  cogsBetween,
+  invoicedRevenueBetween,
   listLedger,
 };
 
@@ -308,6 +389,22 @@ export async function buildPnL(
     failures.push("settlements");
   }
 
+  let cogsEgp = 0;
+  try {
+    cogsEgp = await sources.cogsBetween(period.from, period.to);
+  } catch (error) {
+    console.error("[finance-report] Failed to load COGS:", error);
+    failures.push("cogs");
+  }
+
+  let invoicedRevenueEgp = 0;
+  try {
+    invoicedRevenueEgp = await sources.invoicedRevenueBetween(period.from, period.to);
+  } catch (error) {
+    console.error("[finance-report] Failed to load invoiced revenue:", error);
+    failures.push("invoiced-revenue");
+  }
+
   let ledger: LedgerEntry[] = [];
   try {
     ledger = await sources.listLedger();
@@ -319,6 +416,8 @@ export async function buildPnL(
   return computePnL(period, {
     salesEgp,
     salesCount,
+    invoicedRevenueEgp,
+    cogsEgp,
     ledger,
     failures,
     now: options.now,
@@ -376,7 +475,7 @@ export function pnlToCsv(pnl: PnL): string {
 
   rows.push(csvRow(["Ledger entries (manual)"]));
   rows.push(
-    csvRow(["date", "direction", "category", "amount_egp", "method", "note", "receipt_url"])
+    csvRow(["date", "direction", "category", "vendor", "reference", "amount_egp", "net_egp", "vat_egp", "status", "due_date", "method", "note", "receipt_url"])
   );
   for (const e of pnl.entries) {
     rows.push(
@@ -384,7 +483,13 @@ export function pnlToCsv(pnl: PnL): string {
         e.date,
         e.direction,
         e.category,
+        e.vendor ?? "",
+        e.reference ?? "",
         e.amountEgp,
+        entryNetEgp(e),
+        entryVatEgp(e),
+        e.paymentStatus ?? "paid",
+        e.dueDate ?? "",
         e.method,
         e.note,
         e.receiptUrl ?? "",
@@ -394,7 +499,10 @@ export function pnlToCsv(pnl: PnL): string {
   rows.push("");
 
   rows.push(csvRow(["Summary"]));
-  rows.push(csvRow(["Revenue — sales settled", pnl.revenue.shopEgp]));
+  rows.push(csvRow(["Revenue — sales settled (cash)", pnl.revenue.shopEgp]));
+  rows.push(csvRow(["Revenue — invoiced (accrual)", pnl.invoicedRevenueEgp]));
+  rows.push(csvRow(["Cost of goods sold (COGS)", pnl.cogsEgp]));
+  rows.push(csvRow(["GROSS PROFIT (invoiced − COGS)", pnl.grossProfitEgp]));
   rows.push(csvRow(["Revenue — manual income", pnl.revenue.manualIncomeEgp]));
   rows.push(csvRow(["Revenue — TOTAL", pnl.revenue.totalEgp]));
   rows.push("");
@@ -404,7 +512,13 @@ export function pnlToCsv(pnl: PnL): string {
   }
   rows.push(csvRow(["Expenses — TOTAL", pnl.expenses.totalEgp]));
   rows.push("");
-  rows.push(csvRow(["NET (revenue − expenses)", pnl.netEgp]));
+  rows.push(csvRow(["VAT — input (on expenses)", pnl.vat.inputEgp]));
+  rows.push(csvRow(["VAT — output (on income)", pnl.vat.outputEgp]));
+  rows.push(csvRow(["VAT — net (owed − reclaimable)", pnl.vat.netEgp]));
+  rows.push("");
+  rows.push(csvRow(["NET — accrual (revenue − all expenses)", pnl.netAccrualEgp]));
+  rows.push(csvRow(["NET — cash (money actually moved)", pnl.netCashEgp]));
+  rows.push(csvRow(["Payables — unpaid/partial expenses owed", pnl.payables.totalEgp]));
 
   // CRLF line endings — the safest cross-spreadsheet default.
   return rows.join("\r\n");
@@ -430,10 +544,13 @@ export function pnlToLetterheadBody(pnl: PnL): string {
   }
   lines.push("");
 
-  lines.push("# Revenue");
-  lines.push(`- Sales settled: ${egp(pnl.revenue.shopEgp)}`);
+  lines.push("# Revenue & gross profit");
+  lines.push(`- Sales settled (cash received): ${egp(pnl.revenue.shopEgp)}`);
+  lines.push(`- Sales invoiced (accrual): ${egp(pnl.invoicedRevenueEgp)}`);
+  lines.push(`- Cost of goods sold: ${egp(pnl.cogsEgp)}`);
+  lines.push(`- Gross profit (invoiced − COGS): ${egp(pnl.grossProfitEgp)}`);
   lines.push(`- Other income (cash, gift cards): ${egp(pnl.revenue.manualIncomeEgp)}`);
-  lines.push(`- Total revenue: ${egp(pnl.revenue.totalEgp)}`);
+  lines.push(`- Total revenue (cash): ${egp(pnl.revenue.totalEgp)}`);
   lines.push("");
 
   lines.push("# Expenses");
@@ -449,13 +566,28 @@ export function pnlToLetterheadBody(pnl: PnL): string {
 
   lines.push("# Net result");
   lines.push(
-    `- Net ${pnl.netEgp >= 0 ? "profit" : "loss"}: ${egp(Math.abs(pnl.netEgp))}`
+    `- Net ${pnl.netAccrualEgp >= 0 ? "profit" : "loss"} (accrual): ${egp(Math.abs(pnl.netAccrualEgp))}`
   );
+  lines.push(
+    `- Net ${pnl.netCashEgp >= 0 ? "profit" : "loss"} (cash): ${egp(Math.abs(pnl.netCashEgp))}`
+  );
+  if (pnl.payables.totalEgp > 0) {
+    lines.push(`- Payables outstanding (unpaid/partial): ${egp(pnl.payables.totalEgp)}`);
+  }
+  lines.push("");
+
+  lines.push("# VAT");
+  lines.push(`- Input VAT (on expenses, reclaimable): ${egp(pnl.vat.inputEgp)}`);
+  lines.push(`- Output VAT (on income, owed): ${egp(pnl.vat.outputEgp)}`);
+  lines.push(`- Net VAT position: ${egp(pnl.vat.netEgp)}`);
   lines.push("");
 
   lines.push("# Notes");
   lines.push(
-    "- Revenue counts settlements (payments) actually received, plus any manual cash/other income."
+    "- Gross profit pairs sales INVOICED in the period with the COGS of those same orders (one invoice-date basis). The cash 'Sales settled' line counts payments received, which may fall in a different period."
+  );
+  lines.push(
+    "- Accrual net counts every expense by its date; cash net counts only money actually paid. Shop sales carry no separate VAT field, so invoiced revenue (and gross profit) are VAT-inclusive."
   );
 
   return lines.join("\n");
